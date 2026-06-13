@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0B1929">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>حاسبة الالتزامات</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:    #0B1929;
+  --navy2:   #122338;
+  --blue:    #1A6FD4;
+  --blue-lt: #2E8AF0;
+  --blue-bg: #0D2E50;
+  --green:   #0D9E5C;
+  --green-lt:#D1FAE5;
+  --green-dk:#065F46;
+  --red:     #E53E3E;
+  --red-lt:  #FEE2E2;
+  --red-dk:  #9B1C1C;
+  --orange:  #DD6B20;
+  --org-lt:  #FEF3C7;
+  --org-dk:  #92400E;
+  --gray:    #1E3347;
+  --gray2:   #2A4560;
+  --gray3:   #8BA8C2;
+  --white:   #FFFFFF;
+  --text:    #E8F0FA;
+  --text2:   #8BA8C2;
+  --card:    #132030;
+  --card2:   #0F1E2E;
+  --border:  #1E3347;
+  --radius:  14px;
+  --shadow:  0 4px 24px rgba(0,0,0,0.4);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  background: var(--navy);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  padding-bottom: 100px;
+}
+
+/* ── BACKGROUND ─────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 0%, #0D2E5020 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, #1A6FD415 0%, transparent 60%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ── HEADER ─────────────────────────────────────── */
+.app-header {
+  position: sticky; top: 0; z-index: 100;
+  background: linear-gradient(180deg, var(--navy) 0%, rgba(11,25,41,0.95) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px 12px;
+}
+.header-top {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.app-title {
+  font-size: 18px; font-weight: 700; color: var(--white);
+  letter-spacing: -0.3px;
+}
+.app-title span { color: var(--blue-lt); }
+.header-date {
+  font-size: 12px; color: var(--text2); margin-top: 4px;
+}
+.btn-add-header {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--blue); border: none;
+  color: white; font-size: 22px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 12px rgba(26,111,212,0.4);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.btn-add-header:active { transform: scale(0.92); }
+
+/* ── KPI CARDS ──────────────────────────────────── */
+.kpi-scroll {
+  display: flex; gap: 12px; overflow-x: auto;
+  padding: 16px 20px 4px;
+  scrollbar-width: none;
+  position: relative; z-index: 1;
+}
+.kpi-scroll::-webkit-scrollbar { display: none; }
+.kpi-card {
+  flex: 0 0 auto; min-width: 130px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  position: relative; overflow: hidden;
+  transition: transform 0.15s;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute; top: 0; right: 0; left: 0; height: 3px;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.kpi-card.total::before  { background: var(--blue); }
+.kpi-card.paid::before   { background: var(--green); }
+.kpi-card.pending::before{ background: var(--orange); }
+.kpi-card.late::before   { background: var(--red); }
+.kpi-card.next::before   { background: #7C3AED; }
+.kpi-label {
+  font-size: 11px; color: var(--text2); margin-bottom: 6px;
+  display: flex; align-items: center; gap: 5px;
+}
+.kpi-amount {
+  font-size: 20px; font-weight: 700; color: var(--white);
+  letter-spacing: -0.5px; line-height: 1;
+}
+.kpi-amount .currency {
+  font-size: 12px; font-weight: 400; color: var(--text2); margin-right: 2px;
+}
+.kpi-sub {
+  font-size: 11px; color: var(--text2); margin-top: 4px;
+}
+
+/* ── NAV TABS ───────────────────────────────────── */
+.nav-tabs {
+  display: flex; gap: 8px;
+  padding: 12px 20px 0;
+  position: relative; z-index: 1;
+}
+.nav-tab {
+  flex: 1; padding: 9px 4px;
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text2);
+  font-size: 12px; font-weight: 500;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  cursor: pointer; transition: all 0.2s;
+  text-align: center;
+}
+.nav-tab.active {
+  background: var(--blue-bg); border-color: var(--blue);
+  color: var(--blue-lt); font-weight: 600;
+}
+
+/* ── SECTION TITLE ──────────────────────────────── */
+.section-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px 10px;
+  position: relative; z-index: 1;
+}
+.section-title { font-size: 15px; font-weight: 600; color: var(--white); }
+.section-count {
+  font-size: 12px; color: var(--text2);
+  background: var(--gray); padding: 3px 10px; border-radius: 20px;
+}
+
+/* ── OBLIGATION CARD ────────────────────────────── */
+.obligations-list {
+  padding: 0 16px;
+  display: flex; flex-direction: column; gap: 10px;
+  position: relative; z-index: 1;
+}
+.ob-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: transform 0.15s;
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ob-card.status-paid   { border-right: 4px solid var(--green); }
+.ob-card.status-pending{ border-right: 4px solid var(--orange); }
+.ob-card.status-late   { border-right: 4px solid var(--red); }
+.ob-card.status-future { border-right: 4px solid var(--blue); }
+.ob-card.status-done   { opacity: 0.5; border-right: 4px solid var(--gray3); }
+
+.ob-main {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 14px 14px 10px;
+}
+.ob-info { flex: 1; }
+.ob-name {
+  font-size: 14px; font-weight: 600; color: var(--white);
+  margin-bottom: 5px;
+}
+.ob-meta {
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+}
+.badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 8px; border-radius: 20px;
+  font-size: 10px; font-weight: 500;
+}
+.badge-cat  { background: var(--gray2); color: var(--text2); }
+.badge-paid  { background: var(--green-lt); color: var(--green-dk); }
+.badge-pending{ background: var(--org-lt); color: var(--org-dk); }
+.badge-late  { background: var(--red-lt); color: var(--red-dk); }
+.badge-future{ background: #EDE9FE; color: #5B21B6; }
+.badge-temp  { background: #FEF3C7; color: #92400E; }
+
+.ob-right { text-align: left; flex-shrink: 0; margin-right: 12px; }
+.ob-amount {
+  font-size: 18px; font-weight: 700; color: var(--white);
+  letter-spacing: -0.5px;
+}
+.ob-amount .cur { font-size: 11px; color: var(--text2); font-weight: 400; }
+.ob-due {
+  font-size: 11px; color: var(--text2); margin-top: 3px; text-align: left;
+}
+
+.ob-footer {
+  display: flex; gap: 6px;
+  padding: 0 14px 12px;
+}
+.btn-ob {
+  flex: 1; padding: 8px;
+  border-radius: 9px; border: none;
+  font-size: 12px; font-weight: 600;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  cursor: pointer; transition: all 0.15s;
+}
+.btn-ob:active { transform: scale(0.96); }
+.btn-pay {
+  background: linear-gradient(135deg, var(--green), #059669);
+  color: white; box-shadow: 0 2px 8px rgba(13,158,92,0.3);
+}
+.btn-edit {
+  background: var(--gray2); color: var(--text2);
+  flex: 0 0 40px;
+}
+.btn-del {
+  background: rgba(229,62,62,0.12); color: var(--red);
+  flex: 0 0 40px;
+}
+
+/* ── EMPTY STATE ────────────────────────────────── */
+.empty-state {
+  text-align: center; padding: 48px 32px;
+  position: relative; z-index: 1;
+}
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-title { font-size: 16px; font-weight: 600; color: var(--white); margin-bottom: 6px; }
+.empty-sub { font-size: 13px; color: var(--text2); }
+
+/* ── HISTORY ENTRIES ────────────────────────────── */
+.history-list {
+  padding: 0 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  position: relative; z-index: 1;
+}
+.hist-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex; justify-content: space-between; align-items: center;
+  animation: slideIn 0.25s ease;
+}
+.hist-left {}
+.hist-name { font-size: 13px; font-weight: 600; color: var(--white); }
+.hist-meta { font-size: 11px; color: var(--text2); margin-top: 3px; }
+.hist-right { text-align: left; }
+.hist-amount { font-size: 16px; font-weight: 700; color: var(--green); }
+.hist-method { font-size: 11px; color: var(--text2); }
+
+/* ── SUMMARY ────────────────────────────────────── */
+.summary-grid {
+  padding: 0 16px;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; position: relative; z-index: 1;
+}
+.sum-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px;
+}
+.sum-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+.sum-value { font-size: 18px; font-weight: 700; color: var(--white); }
+.sum-bar-wrap { margin-top: 8px; background: var(--gray); border-radius: 4px; height: 4px; overflow: hidden; }
+.sum-bar { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+
+/* ── FAB ────────────────────────────────────────── */
+.fab {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  z-index: 200;
+  background: linear-gradient(135deg, var(--blue), var(--blue-lt));
+  color: white; border: none;
+  padding: 14px 32px; border-radius: 50px;
+  font-size: 14px; font-weight: 700;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  cursor: pointer;
+  box-shadow: 0 4px 24px rgba(26,111,212,0.5);
+  transition: transform 0.15s, box-shadow 0.15s;
+  display: flex; align-items: center; gap: 8px;
+  white-space: nowrap;
+}
+.fab:active { transform: translateX(-50%) scale(0.95); }
+
+/* ── MODAL ──────────────────────────────────────── */
+.overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: flex-end;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s;
+}
+.overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  width: 100%; background: var(--navy2);
+  border-radius: 20px 20px 0 0;
+  padding: 20px 20px 40px;
+  border: 1px solid var(--border);
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.34,1.06,0.64,1);
+  max-height: 92vh; overflow-y: auto;
+}
+.overlay.open .modal { transform: translateY(0); }
+.modal-handle {
+  width: 40px; height: 4px; background: var(--gray2);
+  border-radius: 2px; margin: 0 auto 20px;
+}
+.modal-title {
+  font-size: 17px; font-weight: 700; color: var(--white);
+  margin-bottom: 20px; text-align: center;
+}
+
+/* ── FORM ───────────────────────────────────────── */
+.form-group { margin-bottom: 14px; }
+.form-label { font-size: 12px; color: var(--text2); margin-bottom: 6px; display: block; }
+.form-control {
+  width: 100%; padding: 12px 14px;
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--white);
+  font-size: 14px; font-family: 'IBM Plex Sans Arabic', sans-serif;
+  outline: none; transition: border-color 0.2s;
+  text-align: right;
+}
+.form-control:focus { border-color: var(--blue); }
+.form-control option { background: var(--navy2); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.btn-modal-confirm {
+  width: 100%; padding: 14px;
+  background: linear-gradient(135deg, var(--blue), var(--blue-lt));
+  color: white; border: none; border-radius: 12px;
+  font-size: 15px; font-weight: 700;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  cursor: pointer; margin-top: 8px;
+  box-shadow: 0 2px 16px rgba(26,111,212,0.4);
+  transition: transform 0.15s;
+}
+.btn-modal-confirm:active { transform: scale(0.98); }
+.btn-modal-cancel {
+  width: 100%; padding: 12px;
+  background: transparent; color: var(--text2);
+  border: 1px solid var(--border); border-radius: 12px;
+  font-size: 14px; font-family: 'IBM Plex Sans Arabic', sans-serif;
+  cursor: pointer; margin-top: 8px;
+}
+
+/* ── PAY MODAL ──────────────────────────────────── */
+.pay-info {
+  background: var(--card2); border-radius: 12px;
+  padding: 14px; margin-bottom: 16px; text-align: center;
+}
+.pay-info-name { font-size: 16px; font-weight: 700; color: var(--white); }
+.pay-info-date { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+/* ── TOAST ──────────────────────────────────────── */
+.toast {
+  position: fixed; top: 80px; left: 50%; transform: translateX(-50%) translateY(-20px);
+  z-index: 400; background: var(--green);
+  color: white; padding: 10px 20px; border-radius: 50px;
+  font-size: 13px; font-weight: 600;
+  box-shadow: 0 4px 20px rgba(13,158,92,0.4);
+  opacity: 0; pointer-events: none;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+.toast.error { background: var(--red); box-shadow: 0 4px 20px rgba(229,62,62,0.4); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── REMAINING BADGE ────────────────────────────── */
+.rem-badge {
+  font-size: 10px; background: var(--org-lt); color: var(--org-dk);
+  padding: 2px 7px; border-radius: 20px; font-weight: 500;
+}
+
+/* ── FILTER BAR ─────────────────────────────────── */
+.filter-bar {
+  display: flex; gap: 6px; overflow-x: auto;
+  padding: 8px 16px 0; scrollbar-width: none;
+  position: relative; z-index: 1;
+}
+.filter-bar::-webkit-scrollbar { display: none; }
+.filter-chip {
+  flex: 0 0 auto; padding: 5px 12px;
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 20px; color: var(--text2);
+  font-size: 11px; font-weight: 500;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  cursor: pointer; transition: all 0.2s;
+}
+.filter-chip.active {
+  background: var(--blue-bg); border-color: var(--blue); color: var(--blue-lt);
+}
+
+/* ── SALARY BAR ──────────────────────────────────── */
+.salary-bar {
+  margin: 12px 16px 0;
+  background: linear-gradient(135deg, var(--card) 0%, var(--card2) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0;
+  overflow: hidden;
+  position: relative; z-index: 1;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+}
+.salary-bar::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--blue), var(--green));
+}
+.salary-inner {
+  display: flex; gap: 0; align-items: stretch;
+}
+.salary-left {
+  flex: 1; padding: 14px 16px 12px;
+  border-left: 1px solid var(--border);
+}
+.salary-label {
+  font-size: 10px; color: var(--text2); margin-bottom: 6px;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.salary-input-wrap { position: relative; }
+.salary-input-wrap::after {
+  content: 'ر.س';
+  position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+  font-size: 10px; color: var(--text2);
+  pointer-events: none;
+}
+.salary-input {
+  width: 100%;
+  background: var(--card2); border: 1.5px solid var(--border);
+  border-radius: 9px; color: var(--white);
+  font-size: 17px; font-weight: 700;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  padding: 7px 10px 7px 28px; outline: none; text-align: right;
+  transition: border-color 0.2s;
+}
+.salary-input:focus { border-color: var(--blue); }
+.salary-right { flex: 1; padding: 14px 16px 12px; text-align: center; }
+.salary-remain-label { font-size: 10px; color: var(--text2); margin-bottom: 4px; }
+.salary-remain-val {
+  font-size: 19px; font-weight: 800; letter-spacing: -0.5px;
+  transition: color 0.3s; line-height: 1.1;
+}
+.salary-remain-val.positive { color: var(--green); }
+.salary-remain-val.negative { color: var(--red); }
+.salary-remain-val.zero     { color: var(--text2); }
+.salary-pct-label { font-size: 10px; color: var(--text2); margin-top: 2px; }
+.salary-progress-wrap {
+  margin: 0 16px 12px; height: 5px;
+  background: var(--gray); border-radius: 3px; overflow: hidden;
+}
+.salary-progress-fill {
+  height: 100%; border-radius: 3px;
+  transition: width 0.6s cubic-bezier(.4,0,.2,1), background 0.3s;
+}
+
+/* ── THEME PICKER ─────────────────────────────────── */
+.theme-grid {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 4px;
+}
+.theme-swatch {
+  border-radius: 12px; border: 2px solid transparent;
+  cursor: pointer; overflow: hidden; transition: transform 0.15s, border-color 0.2s;
+  aspect-ratio: 1; position: relative;
+}
+.theme-swatch:active { transform: scale(0.93); }
+.theme-swatch.selected { border-color: var(--white); box-shadow: 0 0 0 2px var(--blue); }
+.theme-swatch-preview { width: 100%; height: 70%; display: flex; }
+.theme-swatch-preview span { flex: 1; display: block; }
+.theme-swatch-name {
+  font-size: 10px; font-weight: 600; color: var(--white);
+  text-align: center; padding: 5px 2px;
+  background: rgba(0,0,0,0.45);
+  position: absolute; bottom: 0; left: 0; right: 0;
+}
+.theme-section-title { font-size: 12px; color: var(--text2); margin-bottom: 8px; margin-top: 12px; }
+.color-editor { display: flex; flex-direction: column; gap: 9px; max-height: 240px; overflow-y: auto; }
+.color-row { display: flex; align-items: center; gap: 10px; }
+.color-row label { flex: 1; font-size: 12px; color: var(--text2); }
+.color-row input[type=color] {
+  width: 44px; height: 34px;
+  border: 2px solid var(--border); border-radius: 8px;
+  background: none; cursor: pointer; padding: 2px;
+}
+.btn-theme-reset {
+  width: 100%; padding: 10px;
+  background: transparent; color: var(--text2);
+  border: 1px solid var(--border); border-radius: 12px;
+  font-size: 13px; font-family: 'IBM Plex Sans Arabic', sans-serif;
+  cursor: pointer; margin-top: 8px;
+}
+.btn-settings {
+  position: fixed; bottom: 88px; left: 20px; z-index: 200;
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--text2); font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+.btn-settings:active { transform: scale(0.9); }
+
+/* ── PROGRESS BAR FOR TEMP ──────────────────────── */
+.temp-progress {
+  margin: 0 14px 10px; direction: ltr;
+}
+.temp-track {
+  height: 3px; background: var(--gray);
+  border-radius: 2px; overflow: hidden;
+}
+.temp-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+  <div class="header-top">
+    <div>
+      <div class="app-title">💼 حاسبة <span>الالتزامات</span></div>
+      <div class="header-date" id="headerDate"></div>
+    </div>
+    <button class="btn-add-header" onclick="openAddModal()">+</button>
+  </div>
+</header>
+
+<!-- KPI CARDS -->
+<div class="kpi-scroll" id="kpiScroll"></div>
+
+<!-- SALARY BAR -->
+<div class="salary-bar" id="salaryBar">
+  <div class="salary-inner">
+    <div class="salary-right">
+      <div class="salary-remain-label">المتبقي بعد الالتزامات</div>
+      <div class="salary-remain-val zero" id="salaryRemain">—</div>
+      <div class="salary-pct-label" id="salaryPct"></div>
+    </div>
+    <div class="salary-left">
+      <div class="salary-label">💰 الراتب الشهري</div>
+      <div class="salary-input-wrap">
+        <input class="salary-input" id="salaryInput" type="number"
+               inputmode="decimal" placeholder="أدخل راتبك"
+               oninput="updateSalary()">
+      </div>
+    </div>
+  </div>
+  <div class="salary-progress-wrap">
+    <div class="salary-progress-fill" id="salaryFill" style="width:0%;background:var(--green)"></div>
+  </div>
+</div>
+
+<!-- NAV TABS -->
+<div class="nav-tabs">
+  <button class="nav-tab active" onclick="switchTab('obligations',this)">📋 الالتزامات</button>
+  <button class="nav-tab" onclick="switchTab('history',this)">💰 السجل</button>
+  <button class="nav-tab" onclick="switchTab('summary',this)">📊 الملخص</button>
+</div>
+
+<!-- OBLIGATIONS TAB -->
+<div id="tab-obligations">
+  <div class="filter-bar" id="filterBar"></div>
+  <div class="section-header">
+    <div class="section-title">الشهر الحالي</div>
+    <div class="section-count" id="oblCount">0 التزام</div>
+  </div>
+  <div class="obligations-list" id="oblList"></div>
+</div>
+
+<!-- HISTORY TAB -->
+<div id="tab-history" style="display:none">
+  <div class="section-header">
+    <div class="section-title">سجل المدفوعات</div>
+    <div class="section-count" id="histCount">0 دفعة</div>
+  </div>
+  <div class="history-list" id="histList"></div>
+</div>
+
+<!-- SUMMARY TAB -->
+<div id="tab-summary" style="display:none">
+  <div class="section-header">
+    <div class="section-title">تحليل الشهر الحالي</div>
+  </div>
+  <div class="summary-grid" id="summaryGrid"></div>
+</div>
+
+<!-- FAB -->
+<button class="fab" onclick="openAddModal()">
+  <span>+</span> إضافة التزام
+</button>
+<button class="btn-settings" onclick="openThemeModal()" title="تخصيص الألوان">🎨</button>
+
+<!-- ADD/EDIT MODAL -->
+<div class="overlay" id="addOverlay" onclick="closeOverlay(event,'addOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modalTitle">إضافة التزام جديد</div>
+    <input type="hidden" id="editId">
+
+    <div class="form-group">
+      <label class="form-label">اسم الالتزام *</label>
+      <input class="form-control" id="f_name" placeholder="مثل: إيجار السكن">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">الفئة</label>
+        <select class="form-control" id="f_cat">
+          <option>إيجار</option><option>فواتير</option><option>أقساط</option>
+          <option>تأمين</option><option>اشتراكات</option><option>مصاريف ثابتة</option><option>أخرى</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">المبلغ (ر.س) *</label>
+        <input class="form-control" id="f_amount" type="number" placeholder="0.00" inputmode="decimal">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">يوم الاستحقاق من الشهر</label>
+        <input class="form-control" id="f_day" type="number" min="1" max="31" placeholder="مثال: 15" inputmode="numeric">
+      </div>
+      <div class="form-group">
+        <label class="form-label">الحالة</label>
+        <select class="form-control" id="f_status">
+          <option value="قادم">قادم</option>
+          <option value="متأخر">متأخر</option>
+          <option value="مدفوع">مدفوع</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">النوع</label>
+        <select class="form-control" id="f_type" onchange="toggleTemp()">
+          <option value="دائم">دائم</option>
+          <option value="مؤقت-أشهر">مؤقت (أشهر)</option>
+          <option value="مؤقت-تاريخ">مؤقت (تاريخ)</option>
+        </select>
+      </div>
+      <div class="form-group" id="f_rem_group" style="display:none">
+        <label class="form-label" id="f_rem_label">أشهر متبقية</label>
+        <input class="form-control" id="f_rem" placeholder="">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ملاحظات</label>
+      <input class="form-control" id="f_notes" placeholder="اختياري">
+    </div>
+
+    <button class="btn-modal-confirm" onclick="saveObligation()">💾 حفظ</button>
+    <button class="btn-modal-cancel" onclick="closeModal('addOverlay')">إلغاء</button>
+  </div>
+</div>
+
+<!-- PAY MODAL -->
+<div class="overlay" id="payOverlay" onclick="closeOverlay(event,'payOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✅ تسجيل الدفع</div>
+    <input type="hidden" id="payId">
+
+    <div class="pay-info">
+      <div class="pay-info-name" id="payName"></div>
+      <div class="pay-info-date" id="payDue"></div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">المبلغ المدفوع (ر.س)</label>
+      <input class="form-control" id="p_amount" type="number" inputmode="decimal">
+    </div>
+    <div class="form-group">
+      <label class="form-label">طريقة الدفع</label>
+      <select class="form-control" id="p_method">
+        <option>SADAD</option><option>تحويل بنكي</option>
+        <option>بطاقة ائتمان</option><option>نقداً</option><option>STC Pay</option><option>أخرى</option>
+      </select>
+    </div>
+
+    <button class="btn-modal-confirm" onclick="confirmPayment()" style="background: linear-gradient(135deg,#0D9E5C,#059669); box-shadow: 0 2px 16px rgba(13,158,92,0.4)">
+      ✅ سجّل الدفع وحرّك التاريخ
+    </button>
+    <button class="btn-modal-cancel" onclick="closeModal('payOverlay')">إلغاء</button>
+  </div>
+</div>
+
+
+<!-- THEME MODAL -->
+<div class="overlay theme-modal" id="themeOverlay" onclick="closeOverlay(event,'themeOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🎨 تخصيص الألوان</div>
+
+    <div class="theme-section-title">🎨 ثيمات جاهزة</div>
+    <div class="theme-grid" id="themeGrid"></div>
+
+    <div class="theme-section-title">✏️ تخصيص يدوي للألوان</div>
+    <div class="color-editor" id="colorEditor"></div>
+
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn-theme-reset" onclick="resetTheme()" style="flex:1">↺ إعادة تعيين</button>
+      <button class="btn-modal-cancel" onclick="closeModal('themeOverlay')" style="flex:1;margin-top:0">✓ حفظ وإغلاق</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DIALOG -->
+<div class="overlay" id="confirmOverlay">
+  <div class="modal" style="max-height:auto">
+    <div class="modal-handle"></div>
+    <div class="modal-title" style="font-size:15px" id="confirmMsg"></div>
+    <button class="btn-modal-confirm" id="confirmYes" style="background:linear-gradient(135deg,#E53E3E,#C53030);box-shadow:0 2px 16px rgba(229,62,62,0.4)">🗑 حذف</button>
+    <button class="btn-modal-cancel" id="confirmNo">إلغاء</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// DATA LAYER — localStorage
+// ═══════════════════════════════════════════════════════
+const KEY_OBL  = 'obls_v1';
+const KEY_HIST = 'hist_v1';
+
+function loadObls()  { try { return JSON.parse(localStorage.getItem(KEY_OBL))  || []; } catch { return []; } }
+function saveObls(d) { localStorage.setItem(KEY_OBL, JSON.stringify(d)); }
+function loadHist()  { try { return JSON.parse(localStorage.getItem(KEY_HIST)) || []; } catch { return []; } }
+function saveHist(d) { localStorage.setItem(KEY_HIST, JSON.stringify(d)); }
+
+// ── Seed sample data on first run ──
+function seedData() {
+  const DATA_VER = 'v7';
+  if (localStorage.getItem('data_ver') === DATA_VER) return;
+  // إعادة ضبط البيانات للنسخة الجديدة
+  localStorage.removeItem('obls_v1');
+  localStorage.removeItem('hist_v1');
+  localStorage.setItem('data_ver', DATA_VER);
+  const today = new Date();
+  const y = today.getFullYear(), m = today.getMonth();
+  const mk = (d) => new Date(y, m, d).toISOString().split('T')[0];
+
+  const samples = [
+    { name:'شاشه',          cat:'أقساط',    amount:40,  dueDay:26, status:'قادم', type:'مؤقت-أشهر', rem:'2',  notes:'' },
+    { name:'Shein',         cat:'أقساط',    amount:120, dueDay:26, status:'قادم', type:'مؤقت-أشهر', rem:'3',  notes:'' },
+    { name:'اقساط الساعة',  cat:'أقساط',    amount:145, dueDay:26, status:'قادم', type:'مؤقت-أشهر', rem:'22', notes:'' },
+    { name:'SPA',           cat:'أخرى',     amount:100, dueDay:26, status:'قادم', type:'مؤقت-أشهر', rem:'2',  notes:'' },
+    { name:'Tabby',         cat:'أقساط',    amount:67,  dueDay:26, status:'قادم', type:'مؤقت-أشهر', rem:'3',  notes:'' },
+    { name:'جوال + ساعه',   cat:'أقساط',    amount:175, dueDay:26, status:'قادم', type:'مؤقت-أشهر', rem:'4',  notes:'' },
+    { name:'فاتوره',        cat:'فواتير',   amount:69,  dueDay:26, status:'قادم', type:'دائم',       rem:'',   notes:'' },
+    { name:'بي سي',         cat:'أقساط',    amount:43,  dueDay:26, status:'قادم', type:'مؤقت-أشهر', rem:'23', notes:'' },
+  ];
+  const seeded = samples.map((s,i) => {
+    const maxD   = new Date(y, m+1, 0).getDate();
+    const safeD  = Math.min(s.dueDay, maxD);
+    const due    = new Date(y, m, safeD);
+    const diffDays = Math.ceil((due - new Date()) / 86400000);
+    // حالة تلقائية: فات = متأخر، ≤7 أيام = معلق، >7 = قادم
+    let autoStatus = s.status;
+    if (autoStatus !== 'مدفوع') {
+      if (diffDays < 0) autoStatus = 'متأخر';
+      else              autoStatus = 'قادم';
+    }
+    return {
+      id: Date.now()+i,
+      ...s,
+      status:   autoStatus,
+      dueDate:  new Date(y, m, safeD).toISOString().split('T')[0],
+      lastPaid: s.status==='مدفوع' ? new Date().toISOString().split('T')[0] : '',
+      createdAt: new Date().toISOString()
+    };
+  });
+  saveObls(seeded);
+}
+seedData();
+
+
+// ═══════════════════════════════════════════════════════
+// DATE HELPERS
+// ═══════════════════════════════════════════════════════
+const MONTHS_AR = ['يناير','فبراير','مارس','أبريل','مايو','يونيو',
+                   'يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+
+function todayStr()  { return new Date().toISOString().split('T')[0]; }
+
+// ضمان الأرقام الغربية 0-9 بدلاً من ٠-٩
+function fmtAmt(n) {
+  const num = Number(n);
+  if (isNaN(num)) return '0';
+  return num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d + 'T00:00:00');
+  const day  = String(dt.getDate()).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  const year = String(dt.getFullYear()).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  return `${dt.getDate()} ${MONTHS_AR[dt.getMonth()]} ${dt.getFullYear()}`;
+}
+function toWestern(n) {
+  // يحول أي رقم لأرقام غربية 0-9
+  return String(n).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+}
+function nextMonthDate(dateStr, day) {
+  const d = new Date(dateStr + 'T00:00:00');
+  let nm = d.getMonth() + 1, ny = d.getFullYear();
+  if (nm > 11) { nm = 0; ny++; }
+  const maxDay = new Date(ny, nm+1, 0).getDate();
+  return new Date(ny, nm, Math.min(day||d.getDate(), maxDay)).toISOString().split('T')[0];
+}
+function isLate(obl) {
+  if (obl.status === 'مدفوع') return false;
+  if (obl.type === 'مؤقت-تاريخ') return false; // يتحكم المستخدم بالحالة
+  return obl.dueDate && obl.dueDate < todayStr();
+}
+function monthLabel(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return `${MONTHS_AR[d.getMonth()]} ${d.getFullYear().toLocaleString('en-US')}`;
+}
+
+// ═══════════════════════════════════════════════════════
+// CURRENT STATE
+// ═══════════════════════════════════════════════════════
+let currentFilter = 'الكل';
+let currentTab    = 'obligations';
+
+// ═══════════════════════════════════════════════════════
+// RENDER KPI CARDS
+// ═══════════════════════════════════════════════════════
+function renderKPI() {
+  const obls = loadObls();
+  const today = new Date(); const cm = today.getMonth(), cy = today.getFullYear();
+  const thisMonth = (o) => {
+    if (!o.dueDate) return false;
+    const d = new Date(o.dueDate + 'T00:00:00');
+    return d.getMonth() === cm && d.getFullYear() === cy;
+  };
+  const nextMonth = (o) => {
+    if (!o.dueDate) return false;
+    const d = new Date(o.dueDate + 'T00:00:00');
+    let nm = cm+1, ny = cy; if (nm>11){nm=0;ny++;}
+    return d.getMonth()===nm && d.getFullYear()===ny;
+  };
+
+  const total   = obls.filter(thisMonth).reduce((s,o)=>s+Number(o.amount),0);
+  const paid    = obls.filter(o=>thisMonth(o)&&o.status==='مدفوع').reduce((s,o)=>s+Number(o.amount),0);
+
+  const late    = obls.filter(o=>thisMonth(o)&&(o.status==='متأخر'||isLate(o))).reduce((s,o)=>s+Number(o.amount),0);
+  const nextTot = obls.filter(nextMonth).reduce((s,o)=>s+Number(o.amount),0);
+
+  const kpis = [
+    { label:'📊 الشهر الحالي', amount:total,   cls:'total',   sub: obls.filter(thisMonth).length.toLocaleString('en-US') + ' التزام' },
+    { label:'✅ مدفوع',        amount:paid,    cls:'paid',    sub: obls.filter(o=>thisMonth(o)&&o.status==='مدفوع').length.toLocaleString('en-US') + ' بند' },
+
+    { label:'🔴 متأخر',        amount:late,    cls:'late',    sub: obls.filter(o=>thisMonth(o)&&(o.status==='متأخر'||isLate(o))).length.toLocaleString('en-US') + ' بند' },
+    { label:'📅 الشهر القادم', amount:nextTot, cls:'next',    sub: obls.filter(nextMonth).length.toLocaleString('en-US') + ' التزام' },
+  ];
+  document.getElementById('kpiScroll').innerHTML = kpis.map(k=>`
+    <div class="kpi-card ${k.cls}">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-amount"><span class="currency">ر.س</span>${fmtAmt(k.amount)}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER FILTER BAR
+// ═══════════════════════════════════════════════════════
+function renderFilters() {
+  const filters = ['الكل','متأخر','قادم','مدفوع'];
+  document.getElementById('filterBar').innerHTML = filters.map(f=>`
+    <button class="filter-chip ${f===currentFilter?'active':''}"
+            onclick="setFilter('${f}')">${f}</button>
+  `).join('');
+}
+
+function setFilter(f) {
+  currentFilter = f; renderFilters(); renderObligations();
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER OBLIGATIONS
+// ═══════════════════════════════════════════════════════
+function renderObligations() {
+  const obls = loadObls();
+  // Auto-update late status
+  const today = todayStr();
+  let changed = false;
+  obls.forEach(o => {
+    if (o.status==='قادم' && o.dueDate && o.dueDate < today) {
+      if (o.type === 'مؤقت-تاريخ') return;
+      o.status = 'متأخر'; changed = true;
+    }
+  });
+  if (changed) saveObls(obls);
+
+  let filtered = obls;
+  if (currentFilter !== 'الكل') {
+    filtered = obls.filter(o => o.status === currentFilter);
+  }
+
+  // Sort: late first, then pending, then future, then paid
+  const order = { 'متأخر':0,'قادم':1,'مدفوع':2 };
+  filtered.sort((a,b) => {
+    const od = (order[a.status]??2) - (order[b.status]??2);
+    if (od !== 0) return od;
+    return (a.dueDate||'') < (b.dueDate||'') ? -1 : 1;
+  });
+
+  document.getElementById('oblCount').textContent = filtered.length.toLocaleString('en-US') + ' التزام';
+
+  if (filtered.length === 0) {
+    document.getElementById('oblList').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <div class="empty-title">لا توجد التزامات</div>
+        <div class="empty-sub">اضغط + لإضافة التزام جديد</div>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('oblList').innerHTML = filtered.map(o => {
+    const statusCls = {
+      'مدفوع':'paid','متأخر':'late','قادم':'future'
+    }[o.status] || 'future';
+    const badgeCls = {
+      'مدفوع':'badge-paid','متأخر':'badge-late','قادم':'badge-future'
+    }[o.status] || 'badge-future';
+
+    // Temp progress
+    let tempHtml = '';
+    if (o.type === 'مؤقت-أشهر' && o.rem !== '' && !isNaN(o.rem)) {
+      const remN = parseInt(o.rem);
+      tempHtml = `
+        <div class="temp-progress">
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:4px;direction:rtl">
+            <span>متبقي: ${remN.toLocaleString('en-US')} شهر</span>
+          </div>
+          <div class="temp-track">
+            <div class="temp-fill" style="width:${Math.max(5,Math.min(100,remN*5))}%;background:var(--orange)"></div>
+          </div>
+        </div>`;
+    } else if (o.type === 'مؤقت-تاريخ' && o.rem) {
+      tempHtml = `<div style="padding:0 14px 8px;font-size:11px;color:var(--text2)">ينتهي: ${o.rem}</div>`;
+    }
+
+    const isDone = o.type==='مؤقت-أشهر' && parseInt(o.rem)===0;
+
+    return `
+      <div class="ob-card status-${isDone?'done':statusCls}">
+        <div class="ob-main">
+          <div class="ob-info">
+            <div class="ob-name">${o.name}</div>
+            <div class="ob-meta">
+              <span class="badge badge-cat">${o.cat||'أخرى'}</span>
+              <span class="badge ${badgeCls}">${o.status}</span>
+              ${o.type!=='دائم'?`<span class="rem-badge">${o.type==='مؤقت-أشهر'?(parseInt(o.rem)||0).toLocaleString('en-US')+' شهر':o.rem}</span>`:''}
+              ${o.notes?`<span class="badge badge-cat">${o.notes}</span>`:''}
+            </div>
+          </div>
+          <div class="ob-right">
+            <div class="ob-amount">${fmtAmt(o.amount)}<span class="cur"> ر.س</span></div>
+            <div class="ob-due">${fmtDate(o.dueDate)}</div>
+          </div>
+        </div>
+        ${tempHtml}
+        <div class="ob-footer">
+          ${o.status!=='مدفوع'&&!isDone
+            ? `<button class="btn-ob btn-pay" onclick="openPayModal('${o.id}')">✅ سجّل الدفع</button>`
+            : `<button class="btn-ob btn-pay" style="background:var(--gray2);color:var(--text2)" disabled>مدفوع ✓</button>`}
+          <button class="btn-ob btn-edit" onclick="openEditModal('${o.id}')" title="تعديل">✏️</button>
+          <button class="btn-ob btn-del"  onclick="deleteObl('${o.id}')" title="حذف">🗑</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER HISTORY
+// ═══════════════════════════════════════════════════════
+function renderHistory() {
+  const hist = loadHist().slice().reverse();
+  document.getElementById('histCount').textContent = hist.length.toLocaleString('en-US') + ' دفعة';
+  if (hist.length === 0) {
+    document.getElementById('histList').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📂</div>
+        <div class="empty-title">لا توجد مدفوعات مسجلة</div>
+        <div class="empty-sub">سيظهر هنا سجل كل الدفعات</div>
+      </div>`;
+    return;
+  }
+  document.getElementById('histList').innerHTML = hist.map(h=>`
+    <div class="hist-card">
+      <div class="hist-left">
+        <div class="hist-name">${h.name}</div>
+        <div class="hist-meta">${h.method} · ${h.monthLabel}</div>
+        <div class="hist-meta">${fmtDate(h.paidDate)}</div>
+      </div>
+      <div class="hist-right">
+        <div class="hist-amount">${fmtAmt(h.amount)} <span style="font-size:11px;font-weight:400;color:var(--text2)">ر.س</span></div>
+        <div class="hist-method">${h.cat||''}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER SUMMARY
+// ═══════════════════════════════════════════════════════
+function renderSummary() {
+  const obls = loadObls();
+  const today = new Date(); const cm = today.getMonth(), cy = today.getFullYear();
+  const thisMonth = (o) => {
+    if (!o.dueDate) return false;
+    const d = new Date(o.dueDate + 'T00:00:00');
+    return d.getMonth()===cm && d.getFullYear()===cy;
+  };
+  const total = obls.filter(thisMonth).reduce((s,o)=>s+Number(o.amount),0);
+
+  const cats = ['إيجار','فواتير','أقساط','تأمين','اشتراكات','مصاريف ثابتة','أخرى'];
+  const icons = {'إيجار':'🏠','فواتير':'🔌','أقساط':'💳','تأمين':'🛡️','اشتراكات':'📱','مصاريف ثابتة':'📌','أخرى':'📦'};
+  const colors = {'إيجار':'#1A6FD4','فواتير':'#7C3AED','أقساط':'#DD6B20',
+                  'تأمين':'#0D9E5C','اشتراكات':'#DB2777','مصاريف ثابتة':'#0891B2','أخرى':'#6B7280'};
+
+  const statuses = [
+    {label:'✅ مدفوع',k:'مدفوع',c:'#0D9E5C'},
+
+    {label:'🔴 متأخر',k:'متأخر',c:'#E53E3E'},
+    {label:'📅 قادم', k:'قادم', c:'#1A6FD4'},
+  ];
+
+  let html = '';
+
+  // Status cards
+  statuses.forEach(s => {
+    const amt  = obls.filter(o=>thisMonth(o)&&o.status===s.k).reduce((a,o)=>a+Number(o.amount),0);
+    const cnt  = obls.filter(o=>thisMonth(o)&&o.status===s.k).length;
+    const pct  = total ? (amt/total*100) : 0;
+    html += `
+      <div class="sum-card">
+        <div class="sum-label">${s.label}</div>
+        <div class="sum-value">${fmtAmt(amt)} <span style="font-size:11px;color:var(--text2)">ر.س</span></div>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px">${cnt.toLocaleString('en-US')} بند · ${pct.toFixed(0).toLocaleString('en-US')}%</div>
+        <div class="sum-bar-wrap"><div class="sum-bar" style="width:${pct}%;background:${s.c}"></div></div>
+      </div>`;
+  });
+
+  // Category cards
+  cats.forEach(cat => {
+    const amt = obls.filter(o=>thisMonth(o)&&o.cat===cat).reduce((a,o)=>a+Number(o.amount),0);
+    if (amt === 0) return;
+    const pct = total ? (amt/total*100) : 0;
+    html += `
+      <div class="sum-card">
+        <div class="sum-label">${icons[cat]||''} ${cat}</div>
+        <div class="sum-value">${fmtAmt(amt)} <span style="font-size:11px;color:var(--text2)">ر.س</span></div>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px">${pct.toFixed(0).toLocaleString('en-US')}% من الإجمالي</div>
+        <div class="sum-bar-wrap"><div class="sum-bar" style="width:${pct}%;background:${colors[cat]||'#6B7280'}"></div></div>
+      </div>`;
+  });
+
+  document.getElementById('summaryGrid').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════════════
+function switchTab(tab, btn) {
+  currentTab = tab;
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-obligations').style.display = tab==='obligations' ? '' : 'none';
+  document.getElementById('tab-history').style.display     = tab==='history'     ? '' : 'none';
+  document.getElementById('tab-summary').style.display     = tab==='summary'     ? '' : 'none';
+  if (tab==='history') renderHistory();
+  if (tab==='summary') renderSummary();
+}
+
+// ═══════════════════════════════════════════════════════
+// MODALS
+// ═══════════════════════════════════════════════════════
+function openAddModal() {
+  document.getElementById('modalTitle').textContent = 'إضافة التزام جديد';
+  document.getElementById('editId').value = '';
+  ['f_name','f_amount','f_day','f_notes','f_rem'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f_cat').value    = 'إيجار';
+  document.getElementById('f_status').value = 'قادم';
+  document.getElementById('f_type').value   = 'دائم';
+  toggleTemp();
+  document.getElementById('addOverlay').classList.add('open');
+}
+
+function openEditModal(id) {
+  const o = loadObls().find(x => String(x.id)===String(id));
+  if (!o) return;
+  document.getElementById('modalTitle').textContent = 'تعديل الالتزام';
+  document.getElementById('editId').value    = id;
+  document.getElementById('f_name').value   = o.name;
+  document.getElementById('f_cat').value    = o.cat;
+  document.getElementById('f_amount').value = o.amount;
+  document.getElementById('f_day').value    = o.dueDay || '';
+  document.getElementById('f_status').value = o.status;
+  document.getElementById('f_type').value   = o.type;
+  document.getElementById('f_rem').value    = o.rem||'';
+  document.getElementById('f_notes').value  = o.notes||'';
+  toggleTemp();
+  document.getElementById('addOverlay').classList.add('open');
+}
+
+function toggleTemp() {
+  const t = document.getElementById('f_type').value;
+  const g = document.getElementById('f_rem_group');
+  const l = document.getElementById('f_rem_label');
+  if (t === 'دائم') { g.style.display='none'; return; }
+  g.style.display='';
+  l.textContent = t==='مؤقت-أشهر' ? 'عدد الأشهر المتبقية' : 'تاريخ الانتهاء (مثال: 31/12/2025)';
+}
+
+function openPayModal(id) {
+  const o = loadObls().find(x => String(x.id)===String(id));
+  if (!o) return;
+  document.getElementById('payId').value    = id;
+  document.getElementById('payName').textContent = o.name;
+  document.getElementById('payDue').textContent  = 'الاستحقاق: ' + fmtDate(o.dueDate) + ' · ' + fmtAmt(o.amount) + ' ر.س';
+  document.getElementById('p_amount').value = o.amount;
+  document.getElementById('p_method').value = 'SADAD';
+  document.getElementById('payOverlay').classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+function closeOverlay(e, id) {
+  if (e.target.id === id) closeModal(id);
+}
+
+// ═══════════════════════════════════════════════════════
+// SAVE OBLIGATION
+// ═══════════════════════════════════════════════════════
+function saveObligation() {
+  const name   = document.getElementById('f_name').value.trim();
+  const amount = parseFloat(document.getElementById('f_amount').value);
+  if (!name)        { showToast('أدخل اسم الالتزام', true); return; }
+  if (isNaN(amount)||amount<=0) { showToast('أدخل مبلغاً صحيحاً', true); return; }
+
+  const day     = parseInt(document.getElementById('f_day').value)||1;
+  const status  = document.getElementById('f_status').value;
+  const type    = document.getElementById('f_type').value;
+  const rem     = document.getElementById('f_rem').value.trim();
+  const today   = new Date();
+
+  // حساب dueDate بشكل ذكي حسب النوع والحالة
+  let dueDate;
+  if (type === 'مؤقت-تاريخ' && rem) {
+    // مؤقت بتاريخ انتهاء: نبني dueDate من يوم الشهر + الشهر الحالي
+    // لو اليوم فات في الشهر الحالي نروح للشهر القادم
+    let bm = today.getMonth(), by = today.getFullYear();
+    const maxD1 = new Date(by, bm+1, 0).getDate();
+    const safeD1 = Math.min(Math.max(1, day), maxD1);
+    const candidate = new Date(by, bm, safeD1);
+    // لو التاريخ المحسوب فات اليوم اذهب للشهر القادم
+    if (candidate < today && status !== 'متأخر') {
+      bm += 1;
+      if (bm > 11) { bm = 0; by++; }
+    }
+    const maxD2 = new Date(by, bm+1, 0).getDate();
+    const safeD2 = Math.min(Math.max(1, day), maxD2);
+    dueDate = new Date(by, bm, safeD2).toISOString().split('T')[0];
+  } else {
+    // دائم أو مؤقت-أشهر
+    let baseMonth = today.getMonth();
+    let baseYear  = today.getFullYear();
+    // لو مدفوع أو قادم: اجعل الاستحقاق للشهر القادم حتى لا يُصنَّف متأخراً
+    if (status === 'مدفوع' || status === 'قادم') {
+      const maxDCur = new Date(baseYear, baseMonth+1, 0).getDate();
+      const safeD   = Math.min(Math.max(1, day), maxDCur);
+      const candidate = new Date(baseYear, baseMonth, safeD);
+      if (candidate <= today) {
+        baseMonth += 1;
+        if (baseMonth > 11) { baseMonth = 0; baseYear += 1; }
+      }
+    }
+    const maxDay  = new Date(baseYear, baseMonth + 1, 0).getDate();
+    const safeDay = Math.min(Math.max(1, day), maxDay);
+    dueDate = new Date(baseYear, baseMonth, safeDay).toISOString().split('T')[0];
+  }
+
+  const safeDay = parseInt(day) || 1;
+
+  const o = {
+    name,
+    cat:    document.getElementById('f_cat').value,
+    amount,
+    dueDay: safeDay,
+    dueDate,
+    status,
+    type:   document.getElementById('f_type').value,
+    rem:    document.getElementById('f_rem').value.trim(),
+    notes:  document.getElementById('f_notes').value.trim(),
+  };
+
+  const obls  = loadObls();
+  const editId= document.getElementById('editId').value;
+  if (editId) {
+    const idx = obls.findIndex(x => String(x.id)===String(editId));
+    if (idx !== -1) { obls[idx] = { ...obls[idx], ...o }; }
+  } else {
+    o.id = Date.now();
+    o.createdAt = new Date().toISOString();
+    obls.push(o);
+  }
+  saveObls(obls);
+  closeModal('addOverlay');
+  renderAll();
+  showToast(editId ? 'تم التعديل ✓' : 'تمت الإضافة ✓');
+}
+
+// ═══════════════════════════════════════════════════════
+// CONFIRM PAYMENT — the main automation
+// ═══════════════════════════════════════════════════════
+function confirmPayment() {
+  const id     = document.getElementById('payId').value;
+  const amount = parseFloat(document.getElementById('p_amount').value);
+  const method = document.getElementById('p_method').value;
+  if (isNaN(amount)||amount<=0) { showToast('أدخل مبلغاً صحيحاً', true); return; }
+
+  const obls = loadObls();
+  const idx  = obls.findIndex(x => String(x.id)===String(id));
+  if (idx === -1) return;
+
+  const o = obls[idx];
+  const oldDue  = o.dueDate || todayStr();
+  const newDue  = nextMonthDate(oldDue, o.dueDay);
+  const ml      = monthLabel(oldDue);
+
+  // ── 1. Log to history ────────────────────────────────
+  const hist = loadHist();
+  hist.push({
+    id:         Date.now(),
+    oblId:      o.id,
+    name:       o.name,
+    cat:        o.cat,
+    amount,
+    method,
+    paidDate:   todayStr(),
+    monthLabel: ml,
+  });
+  saveHist(hist);
+
+  // ── 2. Update obligation ─────────────────────────────
+  obls[idx].status   = 'قادم';
+  obls[idx].dueDate  = newDue;
+  obls[idx].lastPaid = todayStr();
+
+  // ── 3. Decrement months for temporary ───────────────
+  if (o.type === 'مؤقت-أشهر' && !isNaN(parseInt(o.rem))) {
+    const r = Math.max(0, parseInt(o.rem) - 1);
+    obls[idx].rem = String(r);
+    if (r === 0) obls[idx].status = 'مدفوع'; // mark done
+  }
+
+  saveObls(obls);
+  closeModal('payOverlay');
+  renderAll();
+  showToast(`✅ تم تسجيل دفع ${o.name} · الاستحقاق القادم: ${fmtDate(newDue)}`);
+}
+
+// ═══════════════════════════════════════════════════════
+// DELETE
+// ═══════════════════════════════════════════════════════
+function deleteObl(id) {
+  const obls = loadObls();
+  const o    = obls.find(x => String(x.id)===String(id));
+  if (!o) return;
+  // custom confirm بدلاً من confirm() لأنه محجوب في بعض متصفحات الجوال
+  showConfirm('حذف "' + o.name + '"؟', function() {
+    saveObls(loadObls().filter(x => String(x.id)!==String(id)));
+    renderAll();
+    showToast('تم الحذف');
+  });
+}
+
+function showConfirm(msg, onYes) {
+  const overlay = document.getElementById('confirmOverlay');
+  document.getElementById('confirmMsg').textContent = msg;
+  document.getElementById('confirmYes').onclick = function() {
+    overlay.classList.remove('open');
+    onYes();
+  };
+  document.getElementById('confirmNo').onclick = function() {
+    overlay.classList.remove('open');
+  };
+  overlay.classList.add('open');
+}
+
+// ═══════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════
+function showToast(msg, err=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = 'toast' + (err?' error':'') + ' show';
+  setTimeout(()=>{ t.className='toast'+(err?' error':''); }, 3000);
+}
+
+// ═══════════════════════════════════════════════════════
+// HEADER DATE
+// ═══════════════════════════════════════════════════════
+function updateHeaderDate() {
+  const d = new Date();
+  document.getElementById('headerDate').textContent =
+    `${d.getDate().toLocaleString('en-US')} ${MONTHS_AR[d.getMonth()]} ${d.getFullYear().toLocaleString('en-US')}`;
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER ALL
+// ═══════════════════════════════════════════════════════
+function renderAll() {
+  renderKPI();
+  renderFilters();
+  renderObligations();
+  if (currentTab==='history') renderHistory();
+  if (currentTab==='summary') renderSummary();
+}
+
+// ═══════════════════════════════════════════════════════
+// SALARY
+// ═══════════════════════════════════════════════════════
+function updateSalary() {
+  const salary  = parseFloat(document.getElementById('salaryInput').value) || 0;
+  const obls    = loadObls();
+  const today   = new Date(); const cm = today.getMonth(), cy = today.getFullYear();
+  const total   = obls.filter(o => {
+    if (!o.dueDate) return false;
+    const d = new Date(o.dueDate + 'T00:00:00');
+    return d.getMonth()===cm && d.getFullYear()===cy;
+  }).reduce((s,o) => s + Number(o.amount), 0);
+
+  const remain  = salary - total;
+  const pct     = salary > 0 ? Math.min(100, Math.max(0, (remain/salary)*100)) : 0;
+
+  const el  = document.getElementById('salaryRemain');
+  const bar = document.getElementById('salaryFill');
+
+  if (salary === 0) {
+    el.textContent = '—';
+    el.className = 'salary-remain-val zero';
+    bar.style.width = '0%';
+    return;
+  }
+
+  el.textContent = (remain >= 0 ? '+' : '') + remain.toLocaleString('en-US', {maximumFractionDigits:0}) + ' ر.س';
+  el.className   = 'salary-remain-val ' + (remain > 0 ? 'positive' : remain < 0 ? 'negative' : 'zero');
+  bar.style.width      = pct + '%';
+  bar.style.background = remain >= 0 ? 'var(--green)' : 'var(--red)';
+  const pctEl = document.getElementById('salaryPct');
+  if (pctEl) pctEl.textContent = pct.toFixed(0).toLocaleString('en-US') + '% متبقي من الراتب';
+
+  // حفظ الراتب
+  localStorage.setItem('salary_v1', salary);
+}
+
+function loadSalary() {
+  const s = localStorage.getItem('salary_v1');
+  if (s) {
+    document.getElementById('salaryInput').value = s;
+    updateSalary();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// THEME ENGINE
+// ═══════════════════════════════════════════════════════
+const THEME_KEY = 'theme_v1';
+
+const EDITABLE_VARS = [
+  { key:'--navy',    label:'الخلفية الرئيسية' },
+  { key:'--navy2',   label:'الخلفية الثانوية' },
+  { key:'--blue',    label:'اللون الأساسي (أزرق)' },
+  { key:'--blue-lt', label:'الأزرق الفاتح' },
+  { key:'--green',   label:'اللون الأخضر' },
+  { key:'--red',     label:'اللون الأحمر' },
+  { key:'--orange',  label:'اللون البرتقالي' },
+  { key:'--card',    label:'لون الكارد' },
+  { key:'--card2',   label:'لون الكارد الثانوي' },
+  { key:'--border',  label:'لون الحدود' },
+  { key:'--text',    label:'لون النص الرئيسي' },
+  { key:'--text2',   label:'لون النص الثانوي' },
+];
+
+const PRESET_THEMES = [
+  {
+    name: '🌑 داكن (افتراضي)',
+    vars: { '--navy':'#0B1929','--navy2':'#122338','--blue':'#1A6FD4','--blue-lt':'#2E8AF0',
+            '--green':'#0D9E5C','--red':'#E53E3E','--orange':'#DD6B20',
+            '--card':'#132030','--card2':'#0F1E2E','--border':'#1E3347',
+            '--text':'#E8F0FA','--text2':'#8BA8C2' }
+  },
+  {
+    name: '🌿 أخضر',
+    vars: { '--navy':'#0A1F14','--navy2':'#112A1C','--blue':'#16A34A','--blue-lt':'#22C55E',
+            '--green':'#15803D','--red':'#DC2626','--orange':'#D97706',
+            '--card':'#0F2218','--card2':'#0A1A12','--border':'#1A3825',
+            '--text':'#ECFDF5','--text2':'#86EFAC' }
+  },
+  {
+    name: '🟣 بنفسجي',
+    vars: { '--navy':'#0F0A1E','--navy2':'#1A1030','--blue':'#7C3AED','--blue-lt':'#A78BFA',
+            '--green':'#059669','--red':'#EF4444','--orange':'#F59E0B',
+            '--card':'#160D2A','--card2':'#100820','--border':'#2D1B5E',
+            '--text':'#F5F3FF','--text2':'#C4B5FD' }
+  },
+  {
+    name: '🔴 أحمر',
+    vars: { '--navy':'#1A0A0A','--navy2':'#2A1010','--blue':'#DC2626','--blue-lt':'#F87171',
+            '--green':'#16A34A','--red':'#991B1B','--orange':'#EA580C',
+            '--card':'#200C0C','--card2':'#180808','--border':'#3B1515',
+            '--text':'#FFF1F2','--text2':'#FECACA' }
+  },
+  {
+    name: '🌊 مائي',
+    vars: { '--navy':'#042F2E','--navy2':'#064E3B','--blue':'#0D9488','--blue-lt':'#2DD4BF',
+            '--green':'#059669','--red':'#E11D48','--orange':'#D97706',
+            '--card':'#065F46','--card2':'#044039','--border':'#0F766E',
+            '--text':'#F0FDFA','--text2':'#99F6E4' }
+  },
+  {
+    name: '🌙 رمادي',
+    vars: { '--navy':'#111827','--navy2':'#1F2937','--blue':'#6366F1','--blue-lt':'#818CF8',
+            '--green':'#10B981','--red':'#EF4444','--orange':'#F59E0B',
+            '--card':'#1F2937','--card2':'#111827','--border':'#374151',
+            '--text':'#F9FAFB','--text2':'#9CA3AF' }
+  },
+];
+
+function applyTheme(vars) {
+  const root = document.documentElement;
+  Object.entries(vars).forEach(([k,v]) => {
+    root.style.setProperty(k, v);
+    // update derived vars
+    if (k === '--navy') {
+      root.style.setProperty('--gray', v);
+    }
+  });
+  // sync color pickers
+  document.querySelectorAll('.color-row input[type=color]').forEach(inp => {
+    const cssVar = inp.dataset.var;
+    inp.value = rgbToHex(getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()) || inp.value;
+  });
+}
+
+function saveTheme() {
+  const root  = getComputedStyle(document.documentElement);
+  const saved = {};
+  EDITABLE_VARS.forEach(v => {
+    saved[v.key] = root.getPropertyValue(v.key).trim();
+  });
+  localStorage.setItem(THEME_KEY, JSON.stringify(saved));
+}
+
+function loadTheme() {
+  const raw = localStorage.getItem(THEME_KEY);
+  if (!raw) return;
+  try { applyTheme(JSON.parse(raw)); } catch(e) {}
+}
+
+function resetTheme() {
+  localStorage.removeItem(THEME_KEY);
+  const root = document.documentElement;
+  EDITABLE_VARS.forEach(v => root.style.removeProperty(v.key));
+  renderColorEditor();
+  markSelectedTheme(-1);
+  showToast('تم إعادة التعيين ✓');
+}
+
+function rgbToHex(str) {
+  if (!str) return '#000000';
+  if (str.startsWith('#')) {
+    // ensure 6-digit
+    let h = str.replace('#','');
+    if (h.length===3) h = h.split('').map(c=>c+c).join('');
+    return '#' + h.padEnd(6,'0').slice(0,6);
+  }
+  const m = str.match(/\d+/g);
+  if (!m || m.length < 3) return '#000000';
+  return '#' + m.slice(0,3).map(n => parseInt(n).toString(16).padStart(2,'0')).join('');
+}
+
+function openThemeModal() {
+  renderThemeSwatches();
+  renderColorEditor();
+  document.getElementById('themeOverlay').classList.add('open');
+}
+
+function renderThemeSwatches() {
+  const grid = document.getElementById('themeGrid');
+  grid.innerHTML = PRESET_THEMES.map((t,i) => {
+    const colors = Object.values(t.vars).slice(0,4);
+    return `<div class="theme-swatch" id="swatch_${i}" onclick="applyPreset(${i})">
+      <div class="theme-swatch-preview">
+        ${colors.map(c=>`<span style="background:${c}"></span>`).join('')}
+      </div>
+      <div class="theme-swatch-name">${t.name}</div>
+    </div>`;
+  }).join('');
+}
+
+function applyPreset(i) {
+  applyTheme(PRESET_THEMES[i].vars);
+  saveTheme();
+  renderColorEditor();
+  markSelectedTheme(i);
+  showToast('تم تطبيق الثيم ✓');
+}
+
+function markSelectedTheme(selected) {
+  document.querySelectorAll('.theme-swatch').forEach((el,i) => {
+    el.classList.toggle('selected', i === selected);
+  });
+}
+
+function renderColorEditor() {
+  const root   = getComputedStyle(document.documentElement);
+  const editor = document.getElementById('colorEditor');
+  editor.innerHTML = EDITABLE_VARS.map(v => {
+    const raw = root.getPropertyValue(v.key).trim();
+    const hex = rgbToHex(raw);
+    return `<div class="color-row">
+      <label>${v.label}</label>
+      <input type="color" data-var="${v.key}" value="${hex}"
+             oninput="onColorChange(this)">
+    </div>`;
+  }).join('');
+}
+
+function onColorChange(inp) {
+  const cssVar = inp.dataset.var;
+  document.documentElement.style.setProperty(cssVar, inp.value);
+  saveTheme();
+  markSelectedTheme(-1); // deselect preset
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+// ── INIT ─────────────────────────────────────────────
+loadTheme();
+updateHeaderDate();
+renderAll();
+loadSalary();
+</script>
+</body>
+</html>
