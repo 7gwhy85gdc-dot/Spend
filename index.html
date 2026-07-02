@@ -91,6 +91,18 @@ body::before {
   transition: transform 0.15s, box-shadow 0.15s;
 }
 .btn-add-header:active { transform: scale(0.92); }
+.btn-refresh-header {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--card2); border: 1px solid var(--border);
+  color: var(--text2); font-size: 17px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.15s, background 0.2s;
+  margin-left: 8px;
+}
+.btn-refresh-header:active { transform: scale(0.9); }
+.btn-refresh-header.spinning { animation: spinRefresh 0.6s ease; }
+@keyframes spinRefresh { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.header-top { gap: 8px; }
 
 /* ── KPI CARDS ──────────────────────────────────── */
 .kpi-scroll {
@@ -141,13 +153,13 @@ body::before {
   position: relative; z-index: 1;
 }
 .nav-tab {
-  flex: 1; padding: 9px 4px;
+  flex: 1; padding: 9px 3px;
   background: var(--card2); border: 1px solid var(--border);
   border-radius: 10px; color: var(--text2);
-  font-size: 12px; font-weight: 500;
+  font-size: 11.5px; font-weight: 500;
   font-family: 'IBM Plex Sans Arabic', sans-serif;
   cursor: pointer; transition: all 0.2s;
-  text-align: center;
+  text-align: center; white-space: nowrap;
 }
 .nav-tab.active {
   background: var(--blue-bg); border-color: var(--blue);
@@ -529,6 +541,38 @@ body::before {
 }
 .btn-settings:active { transform: scale(0.9); }
 
+/* ── MONTH PROGRESS CARD (this-month tab) ───────── */
+.month-progress-card {
+  margin: 12px 16px 4px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px;
+  position: relative; z-index: 1;
+}
+.month-progress-top {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12px; color: var(--text2); margin-bottom: 9px;
+}
+.month-progress-top span:last-child { font-size: 15px; font-weight: 700; color: var(--white); }
+.month-progress-track {
+  height: 8px; background: var(--gray); border-radius: 4px; overflow: hidden;
+}
+.month-progress-fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, var(--green), var(--blue-lt));
+  transition: width 0.6s cubic-bezier(.4,0,.2,1);
+}
+
+/* ── CHECKBOX ROW ─────────────────────────────────── */
+.checkbox-row {
+  display: flex; align-items: center; gap: 9px;
+  margin-bottom: 16px; padding: 10px 12px;
+  background: var(--card2); border: 1px solid var(--border); border-radius: 10px;
+}
+.checkbox-row input[type=checkbox] {
+  width: 19px; height: 19px; accent-color: var(--blue); flex-shrink: 0;
+}
+.checkbox-row label { font-size: 13px; color: var(--text); cursor: pointer; }
+
 /* ── PROGRESS BAR FOR TEMP ──────────────────────── */
 .temp-progress {
   margin: 0 14px 10px; direction: ltr;
@@ -549,6 +593,7 @@ body::before {
       <div class="app-title">💼 حاسبة <span>الالتزامات</span></div>
       <div class="header-date" id="headerDate"></div>
     </div>
+    <button class="btn-refresh-header" onclick="manualRefresh()" id="refreshBtn" title="تحديث">🔄</button>
     <button class="btn-add-header" onclick="openAddModal()">+</button>
   </div>
 </header>
@@ -580,16 +625,33 @@ body::before {
 
 <!-- NAV TABS -->
 <div class="nav-tabs">
-  <button class="nav-tab active" onclick="switchTab('obligations',this)">📋 الالتزامات</button>
-  <button class="nav-tab" onclick="switchTab('history',this)">💰 السجل</button>
+  <button class="nav-tab active" onclick="switchTab('thismonth',this)">📅 الشهر</button>
+  <button class="nav-tab" onclick="switchTab('obligations',this)">🗂️ الكل</button>
+  <button class="nav-tab" onclick="switchTab('history',this)">💰 المدفوعات</button>
   <button class="nav-tab" onclick="switchTab('summary',this)">📊 الملخص</button>
 </div>
 
-<!-- OBLIGATIONS TAB -->
-<div id="tab-obligations">
+<!-- THIS MONTH TAB (default) -->
+<div id="tab-thismonth">
+  <div class="month-progress-card" id="monthProgressCard">
+    <div class="month-progress-top">
+      <span id="monthProgressText">—</span>
+      <span id="monthProgressPct">0%</span>
+    </div>
+    <div class="month-progress-track"><div class="month-progress-fill" id="monthProgressFill" style="width:0%"></div></div>
+  </div>
+  <div class="section-header">
+    <div class="section-title">المتبقي عليك هذا الشهر</div>
+    <div class="section-count" id="thisMonthCount">0 متبقٍ</div>
+  </div>
+  <div class="obligations-list" id="thisMonthList"></div>
+</div>
+
+<!-- OBLIGATIONS TAB (Master register — all items) -->
+<div id="tab-obligations" style="display:none">
   <div class="filter-bar" id="filterBar"></div>
   <div class="section-header">
-    <div class="section-title">الشهر الحالي</div>
+    <div class="section-title">كل الالتزامات المسجلة</div>
     <div class="section-count" id="oblCount">0 التزام</div>
   </div>
   <div class="obligations-list" id="oblList"></div>
@@ -648,16 +710,6 @@ body::before {
         <input class="form-control" id="f_day" type="number" min="1" max="31" placeholder="مثال: 15" inputmode="numeric">
       </div>
       <div class="form-group">
-        <label class="form-label">الحالة</label>
-        <select class="form-control" id="f_status">
-          <option value="قادم">قادم</option>
-          <option value="متأخر">متأخر</option>
-          <option value="مدفوع">مدفوع</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
         <label class="form-label">النوع</label>
         <select class="form-control" id="f_type" onchange="toggleTemp()">
           <option value="دائم">دائم</option>
@@ -665,14 +717,24 @@ body::before {
           <option value="مؤقت-تاريخ">مؤقت (تاريخ)</option>
         </select>
       </div>
-      <div class="form-group" id="f_rem_group" style="display:none">
-        <label class="form-label" id="f_rem_label">أشهر متبقية</label>
-        <input class="form-control" id="f_rem" placeholder="">
+    </div>
+    <div class="form-row">
+      <div class="form-group" id="f_months_group" style="display:none">
+        <label class="form-label">عدد الأشهر المتبقية</label>
+        <input class="form-control" id="f_rem_months" type="number" min="0" inputmode="numeric" placeholder="مثال: 6">
+      </div>
+      <div class="form-group" id="f_date_group" style="display:none">
+        <label class="form-label">تاريخ الانتهاء</label>
+        <input class="form-control" id="f_rem_date" type="date">
       </div>
     </div>
     <div class="form-group">
       <label class="form-label">ملاحظات</label>
       <input class="form-control" id="f_notes" placeholder="اختياري">
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="f_paid">
+      <label for="f_paid">تم دفعها لهذا الشهر بالفعل</label>
     </div>
 
     <button class="btn-modal-confirm" onclick="saveObligation()">💾 حفظ</button>
@@ -744,8 +806,7 @@ body::before {
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<script>
-// ═══════════════════════════════════════════════════════
+<script>// ═══════════════════════════════════════════════════════
 // DATA LAYER — localStorage
 // ═══════════════════════════════════════════════════════
 const KEY_OBL  = 'obls_v1';
@@ -756,62 +817,93 @@ function saveObls(d) { localStorage.setItem(KEY_OBL, JSON.stringify(d)); }
 function loadHist()  { try { return JSON.parse(localStorage.getItem(KEY_HIST)) || []; } catch { return []; } }
 function saveHist(d) { localStorage.setItem(KEY_HIST, JSON.stringify(d)); }
 
-// ── Seed sample data on first run ──
-function seedData() {
-  const DATA_VER = 'v7';
-  if (localStorage.getItem('data_ver') === DATA_VER) return;
-  // إعادة ضبط البيانات للنسخة الجديدة
-  localStorage.removeItem('obls_v1');
-  localStorage.removeItem('hist_v1');
-  localStorage.setItem('data_ver', DATA_VER);
-  const today = new Date();
-  const y = today.getFullYear(), m = today.getMonth();
-  const mk = (d) => new Date(y, m, d).toISOString().split('T')[0];
+// ═══════════════════════════════════════════════════════
+// MIGRATION — يحول أي بيانات قديمة للنظام الجديد دون فقدانها
+// ═══════════════════════════════════════════════════════
+function parseArabicDMY(s) {
+  if (!s) return null;
+  const parts = String(s).split('/').map(x => x.trim());
+  if (parts.length !== 3) return null;
+  let [d, m, y] = parts.map(Number);
+  if (!d || !m || !y || d > 31 || m > 12) return null;
+  return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
 
-  const samples = [
-    { name:'شاشه',          cat:'أقساط',    amount:40,  dueDay:26, status:'قادم', type:'مؤقت-أشهر', rem:'2',  notes:'' },
-    { name:'Shein',         cat:'أقساط',    amount:120, dueDay:26, status:'قادم', type:'مؤقت-أشهر', rem:'3',  notes:'' },
-    { name:'اقساط الساعة',  cat:'أقساط',    amount:145, dueDay:26, status:'قادم', type:'مؤقت-أشهر', rem:'22', notes:'' },
-    { name:'SPA',           cat:'أخرى',     amount:100, dueDay:26, status:'قادم', type:'مؤقت-أشهر', rem:'2',  notes:'' },
-    { name:'Tabby',         cat:'أقساط',    amount:67,  dueDay:26, status:'قادم', type:'مؤقت-أشهر', rem:'3',  notes:'' },
-    { name:'جوال + ساعه',   cat:'أقساط',    amount:175, dueDay:26, status:'قادم', type:'مؤقت-أشهر', rem:'4',  notes:'' },
-    { name:'فاتوره',        cat:'فواتير',   amount:69,  dueDay:26, status:'قادم', type:'دائم',       rem:'',   notes:'' },
-    { name:'بي سي',         cat:'أقساط',    amount:43,  dueDay:26, status:'قادم', type:'مؤقت-أشهر', rem:'23', notes:'' },
-  ];
-  const seeded = samples.map((s,i) => {
-    const maxD   = new Date(y, m+1, 0).getDate();
-    const safeD  = Math.min(s.dueDay, maxD);
-    const due    = new Date(y, m, safeD);
-    const diffDays = Math.ceil((due - new Date()) / 86400000);
-    // حالة تلقائية: فات = متأخر، ≤7 أيام = معلق، >7 = قادم
-    let autoStatus = s.status;
-    if (autoStatus !== 'مدفوع') {
-      if (diffDays < 0) autoStatus = 'متأخر';
-      else              autoStatus = 'قادم';
+function migrateSchema() {
+  const FLAG = 'schema_v2_done';
+  if (localStorage.getItem(FLAG)) return;
+  const obls  = loadObls();
+  const today = new Date();
+  const curKey = monthKey(today);
+
+  const migrated = obls.map(o => {
+    // إذا كانت البيانات بالفعل بالتنسيق الجديد (لا يوجد status/dueDate) نتركها كما هي
+    if (o.lastPaidMonth !== undefined && o.finished !== undefined && o.status === undefined) {
+      return o;
     }
+    const type = o.type || 'دائم';
+    let remainingMonths, endDate, finished = false, lastPaidMonth = null;
+
+    if (type === 'مؤقت-أشهر') {
+      remainingMonths = parseInt(o.rem);
+      if (isNaN(remainingMonths)) remainingMonths = 0;
+      if (remainingMonths <= 0) finished = true;
+    } else if (type === 'مؤقت-تاريخ') {
+      endDate = parseArabicDMY(o.rem) || (o.rem && o.rem.includes('-') ? o.rem : null);
+      if (endDate && endDate < todayStr()) finished = true;
+    }
+
+    if (o.status === 'مدفوع' && !finished) {
+      lastPaidMonth = curKey;
+    }
+
+    let dueDay = o.dueDay;
+    if (!dueDay && o.dueDate) {
+      const dd = new Date(o.dueDate + 'T00:00:00');
+      if (!isNaN(dd)) dueDay = dd.getDate();
+    }
+    if (!dueDay) dueDay = 1;
+
     return {
-      id: Date.now()+i,
-      ...s,
-      status:   autoStatus,
-      dueDate:  new Date(y, m, safeD).toISOString().split('T')[0],
-      lastPaid: s.status==='مدفوع' ? new Date().toISOString().split('T')[0] : '',
-      createdAt: new Date().toISOString()
+      id: o.id, name: o.name, cat: o.cat || 'أخرى',
+      amount: Number(o.amount) || 0, dueDay,
+      type, remainingMonths, endDate,
+      notes: o.notes || '', lastPaidMonth, finished,
+      createdAt: o.createdAt || new Date().toISOString()
     };
   });
+
+  saveObls(migrated);
+  localStorage.setItem(FLAG, '1');
+}
+
+// ── بيانات تجريبية عند أول استخدام فقط (لا تمسح بيانات حقيقية) ──
+function seedData() {
+  if (loadObls().length > 0) return;
+  const samples = [
+    { name:'إيجار السكن',     cat:'إيجار',     amount:2500, dueDay:1,  type:'دائم', notes:'' },
+    { name:'فاتورة الكهرباء', cat:'فواتير',    amount:380,  dueDay:5,  type:'دائم', notes:'' },
+    { name:'اشتراك الإنترنت', cat:'اشتراكات',  amount:250,  dueDay:20, type:'دائم', notes:'stc' },
+  ];
+  const seeded = samples.map((s,i) => ({
+    id: Date.now()+i, ...s,
+    remainingMonths: undefined, endDate: undefined,
+    lastPaidMonth: null, finished: false,
+    createdAt: new Date().toISOString()
+  }));
   saveObls(seeded);
 }
-seedData();
-
 
 // ═══════════════════════════════════════════════════════
-// DATE HELPERS
+// DATE / MONTH HELPERS
 // ═══════════════════════════════════════════════════════
 const MONTHS_AR = ['يناير','فبراير','مارس','أبريل','مايو','يونيو',
                    'يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
-function todayStr()  { return new Date().toISOString().split('T')[0]; }
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+function pad2(n) { return String(n).padStart(2,'0'); }
+function monthKey(d) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`; }
 
-// ضمان الأرقام الغربية 0-9 بدلاً من ٠-٩
 function fmtAmt(n) {
   const num = Number(n);
   if (isNaN(num)) return '0';
@@ -820,67 +912,74 @@ function fmtAmt(n) {
 function fmtDate(d) {
   if (!d) return '—';
   const dt = new Date(d + 'T00:00:00');
-  const day  = String(dt.getDate()).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
-  const year = String(dt.getFullYear()).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
-  return `${dt.getDate()} ${MONTHS_AR[dt.getMonth()]} ${dt.getFullYear()}`;
+  if (isNaN(dt)) return '—';
+  return `${dt.getDate().toLocaleString('en-US')} ${MONTHS_AR[dt.getMonth()]} ${dt.getFullYear().toLocaleString('en-US')}`;
 }
-function toWestern(n) {
-  // يحول أي رقم لأرقام غربية 0-9
-  return String(n).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+
+// ── منطق الاستحقاق الشهري الديناميكي (بلا تخزين تاريخ ثابت) ──
+function clampDay(year, month, day) {
+  const maxD = new Date(year, month+1, 0).getDate();
+  return Math.min(Math.max(1, day||1), maxD);
 }
-function nextMonthDate(dateStr, day) {
-  const d = new Date(dateStr + 'T00:00:00');
-  let nm = d.getMonth() + 1, ny = d.getFullYear();
-  if (nm > 11) { nm = 0; ny++; }
-  const maxDay = new Date(ny, nm+1, 0).getDate();
-  return new Date(ny, nm, Math.min(day||d.getDate(), maxDay)).toISOString().split('T')[0];
+function dueDateForMonth(o, year, month) {
+  return new Date(year, month, clampDay(year, month, o.dueDay));
 }
-function isLate(obl) {
-  if (obl.status === 'مدفوع') return false;
-  if (obl.type === 'مؤقت-تاريخ') return false; // يتحكم المستخدم بالحالة
-  return obl.dueDate && obl.dueDate < todayStr();
+function parseISODate(s) {
+  if (!s) return null;
+  const dt = new Date(s + 'T00:00:00');
+  return isNaN(dt) ? null : dt;
 }
-function monthLabel(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  return `${MONTHS_AR[d.getMonth()]} ${d.getFullYear().toLocaleString('en-US')}`;
+function isPaidForMonth(o, refDate) {
+  return o.lastPaidMonth === monthKey(refDate);
+}
+function isActiveForMonth(o, refDate) {
+  if (o.finished) return false;
+  if (o.type === 'مؤقت-تاريخ' && o.endDate) {
+    const end = parseISODate(o.endDate);
+    const due = dueDateForMonth(o, refDate.getFullYear(), refDate.getMonth());
+    if (end && due > end) return false;
+  }
+  return true;
+}
+function getStatus(o, refDate) {
+  if (o.finished) return 'منتهي';
+  if (!isActiveForMonth(o, refDate)) return 'منتهي';
+  if (isPaidForMonth(o, refDate)) return 'مدفوع';
+  const due = dueDateForMonth(o, refDate.getFullYear(), refDate.getMonth());
+  const todayMid = new Date(); todayMid.setHours(0,0,0,0);
+  if (due < todayMid) return 'متأخر';
+  return 'قادم';
 }
 
 // ═══════════════════════════════════════════════════════
-// CURRENT STATE
+// STATE
 // ═══════════════════════════════════════════════════════
 let currentFilter = 'الكل';
-let currentTab    = 'obligations';
+let currentTab    = 'thismonth';
 
 // ═══════════════════════════════════════════════════════
-// RENDER KPI CARDS
+// RENDER: KPI CARDS
 // ═══════════════════════════════════════════════════════
 function renderKPI() {
-  const obls = loadObls();
-  const today = new Date(); const cm = today.getMonth(), cy = today.getFullYear();
-  const thisMonth = (o) => {
-    if (!o.dueDate) return false;
-    const d = new Date(o.dueDate + 'T00:00:00');
-    return d.getMonth() === cm && d.getFullYear() === cy;
-  };
-  const nextMonth = (o) => {
-    if (!o.dueDate) return false;
-    const d = new Date(o.dueDate + 'T00:00:00');
-    let nm = cm+1, ny = cy; if (nm>11){nm=0;ny++;}
-    return d.getMonth()===nm && d.getFullYear()===ny;
-  };
+  const obls  = loadObls();
+  const today = new Date();
 
-  const total   = obls.filter(thisMonth).reduce((s,o)=>s+Number(o.amount),0);
-  const paid    = obls.filter(o=>thisMonth(o)&&o.status==='مدفوع').reduce((s,o)=>s+Number(o.amount),0);
+  const activeThisMonth = obls.filter(o => isActiveForMonth(o, today));
+  const total     = activeThisMonth.reduce((s,o)=>s+Number(o.amount),0);
+  const paidList  = activeThisMonth.filter(o => isPaidForMonth(o, today));
+  const paid      = paidList.reduce((s,o)=>s+Number(o.amount),0);
+  const lateList  = activeThisMonth.filter(o => getStatus(o,today)==='متأخر');
+  const late      = lateList.reduce((s,o)=>s+Number(o.amount),0);
 
-  const late    = obls.filter(o=>thisMonth(o)&&(o.status==='متأخر'||isLate(o))).reduce((s,o)=>s+Number(o.amount),0);
-  const nextTot = obls.filter(nextMonth).reduce((s,o)=>s+Number(o.amount),0);
+  const nextRef   = new Date(today.getFullYear(), today.getMonth()+1, 1);
+  const activeNext= obls.filter(o => isActiveForMonth(o, nextRef));
+  const nextTot   = activeNext.reduce((s,o)=>s+Number(o.amount),0);
 
   const kpis = [
-    { label:'📊 الشهر الحالي', amount:total,   cls:'total',   sub: obls.filter(thisMonth).length.toLocaleString('en-US') + ' التزام' },
-    { label:'✅ مدفوع',        amount:paid,    cls:'paid',    sub: obls.filter(o=>thisMonth(o)&&o.status==='مدفوع').length.toLocaleString('en-US') + ' بند' },
-
-    { label:'🔴 متأخر',        amount:late,    cls:'late',    sub: obls.filter(o=>thisMonth(o)&&(o.status==='متأخر'||isLate(o))).length.toLocaleString('en-US') + ' بند' },
-    { label:'📅 الشهر القادم', amount:nextTot, cls:'next',    sub: obls.filter(nextMonth).length.toLocaleString('en-US') + ' التزام' },
+    { label:'📊 الشهر الحالي', amount:total,   cls:'total',   sub: activeThisMonth.length.toLocaleString('en-US') + ' التزام' },
+    { label:'✅ مدفوع',        amount:paid,    cls:'paid',    sub: paidList.length.toLocaleString('en-US') + ' بند' },
+    { label:'🔴 متأخر',        amount:late,    cls:'late',    sub: lateList.length.toLocaleString('en-US') + ' بند' },
+    { label:'📅 الشهر القادم', amount:nextTot, cls:'next',    sub: activeNext.length.toLocaleString('en-US') + ' التزام' },
   ];
   document.getElementById('kpiScroll').innerHTML = kpis.map(k=>`
     <div class="kpi-card ${k.cls}">
@@ -892,52 +991,130 @@ function renderKPI() {
 }
 
 // ═══════════════════════════════════════════════════════
-// RENDER FILTER BAR
+// SHARED CARD RENDERER
 // ═══════════════════════════════════════════════════════
-function renderFilters() {
-  const filters = ['الكل','متأخر','قادم','مدفوع'];
-  document.getElementById('filterBar').innerHTML = filters.map(f=>`
-    <button class="filter-chip ${f===currentFilter?'active':''}"
-            onclick="setFilter('${f}')">${f}</button>
-  `).join('');
-}
+function renderObCard(o, refDate) {
+  const status = getStatus(o, refDate);
+  const statusCls = { 'مدفوع':'paid','متأخر':'late','قادم':'future','منتهي':'done' }[status] || 'future';
+  const badgeCls  = { 'مدفوع':'badge-paid','متأخر':'badge-late','قادم':'badge-future','منتهي':'badge-cat' }[status] || 'badge-future';
+  const due = dueDateForMonth(o, refDate.getFullYear(), refDate.getMonth());
 
-function setFilter(f) {
-  currentFilter = f; renderFilters(); renderObligations();
-}
-
-// ═══════════════════════════════════════════════════════
-// RENDER OBLIGATIONS
-// ═══════════════════════════════════════════════════════
-function renderObligations() {
-  const obls = loadObls();
-  // Auto-update late status
-  const today = todayStr();
-  let changed = false;
-  obls.forEach(o => {
-    if (o.status==='قادم' && o.dueDate && o.dueDate < today) {
-      if (o.type === 'مؤقت-تاريخ') return;
-      o.status = 'متأخر'; changed = true;
-    }
-  });
-  if (changed) saveObls(obls);
-
-  let filtered = obls;
-  if (currentFilter !== 'الكل') {
-    filtered = obls.filter(o => o.status === currentFilter);
+  let tempHtml = '';
+  if (o.type === 'مؤقت-أشهر' && !o.finished) {
+    const rm = o.remainingMonths ?? 0;
+    tempHtml = `
+      <div class="temp-progress">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:4px;direction:rtl">
+          <span>متبقي: ${rm.toLocaleString('en-US')} شهر</span>
+        </div>
+        <div class="temp-track">
+          <div class="temp-fill" style="width:${Math.max(5,Math.min(100,rm*5))}%;background:var(--orange)"></div>
+        </div>
+      </div>`;
+  } else if (o.type === 'مؤقت-تاريخ' && o.endDate && !o.finished) {
+    tempHtml = `<div style="padding:0 14px 8px;font-size:11px;color:var(--text2)">ينتهي: ${fmtDate(o.endDate)}</div>`;
   }
 
-  // Sort: late first, then pending, then future, then paid
-  const order = { 'متأخر':0,'قادم':1,'مدفوع':2 };
-  filtered.sort((a,b) => {
-    const od = (order[a.status]??2) - (order[b.status]??2);
-    if (od !== 0) return od;
-    return (a.dueDate||'') < (b.dueDate||'') ? -1 : 1;
+  const canPay = status === 'قادم' || status === 'متأخر';
+
+  return `
+    <div class="ob-card status-${statusCls}">
+      <div class="ob-main">
+        <div class="ob-info">
+          <div class="ob-name">${o.name}</div>
+          <div class="ob-meta">
+            <span class="badge badge-cat">${o.cat||'أخرى'}</span>
+            <span class="badge ${badgeCls}">${status}</span>
+            ${o.type!=='دائم' && !o.finished ? `<span class="rem-badge">${o.type==='مؤقت-أشهر' ? (o.remainingMonths??0).toLocaleString('en-US')+' شهر' : 'مؤقت'}</span>` : ''}
+            ${o.notes ? `<span class="badge badge-cat">${o.notes}</span>` : ''}
+          </div>
+        </div>
+        <div class="ob-right">
+          <div class="ob-amount">${fmtAmt(o.amount)}<span class="cur"> ر.س</span></div>
+          <div class="ob-due">${fmtDate(due.toISOString().split('T')[0])}</div>
+        </div>
+      </div>
+      ${tempHtml}
+      <div class="ob-footer">
+        ${canPay
+          ? `<button class="btn-ob btn-pay" onclick="openPayModal('${o.id}')">✅ سجّل الدفع</button>`
+          : `<button class="btn-ob btn-pay" style="background:var(--gray2);color:var(--text2)" disabled>${status}</button>`}
+        <button class="btn-ob btn-edit" onclick="openEditModal('${o.id}')" title="تعديل">✏️</button>
+        <button class="btn-ob btn-del"  onclick="deleteObl('${o.id}')" title="حذف">🗑</button>
+      </div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// TAB 1: هذا الشهر — يختفي البند فور تسجيل الدفع
+// ═══════════════════════════════════════════════════════
+function renderThisMonth() {
+  const obls  = loadObls();
+  const today = new Date();
+  const active = obls.filter(o => isActiveForMonth(o, today));
+  const unpaid = active.filter(o => !isPaidForMonth(o, today));
+  const paidCount  = active.length - unpaid.length;
+  const totalCount = active.length;
+  const pct = totalCount>0 ? Math.round((paidCount/totalCount)*100) : 0;
+
+  document.getElementById('monthProgressText').textContent =
+    totalCount>0 ? `${paidCount.toLocaleString('en-US')} من ${totalCount.toLocaleString('en-US')} مدفوع` : 'لا توجد التزامات مسجلة';
+  document.getElementById('monthProgressPct').textContent = pct.toLocaleString('en-US') + '%';
+  document.getElementById('monthProgressFill').style.width = pct + '%';
+
+  unpaid.sort((a,b) => {
+    const oa = getStatus(a,today)==='متأخر' ? 0 : 1;
+    const ob = getStatus(b,today)==='متأخر' ? 0 : 1;
+    if (oa!==ob) return oa-ob;
+    return (a.dueDay||1) - (b.dueDay||1);
   });
 
-  document.getElementById('oblCount').textContent = filtered.length.toLocaleString('en-US') + ' التزام';
+  document.getElementById('thisMonthCount').textContent = unpaid.length.toLocaleString('en-US') + ' متبقٍ';
 
-  if (filtered.length === 0) {
+  if (unpaid.length === 0) {
+    document.getElementById('thisMonthList').innerHTML = totalCount===0 ? `
+      <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <div class="empty-title">لا توجد التزامات مسجلة</div>
+        <div class="empty-sub">اضغط + لإضافة أول التزام</div>
+      </div>` : `
+      <div class="empty-state">
+        <div class="empty-icon">🎉</div>
+        <div class="empty-title">تم سداد كل التزامات هذا الشهر!</div>
+        <div class="empty-sub">أحسنت، لا يوجد شيء متبقٍ عليك</div>
+      </div>`;
+    return;
+  }
+  document.getElementById('thisMonthList').innerHTML = unpaid.map(o=>renderObCard(o,today)).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// TAB 2: السجل الرئيسي (الكل) — تسجيل/تعديل/حذف كل الالتزامات
+// ═══════════════════════════════════════════════════════
+function renderFilters() {
+  const filters = ['الكل','متأخر','قادم','مدفوع','منتهي'];
+  document.getElementById('filterBar').innerHTML = filters.map(f=>`
+    <button class="filter-chip ${f===currentFilter?'active':''}" onclick="setFilter('${f}')">${f}</button>
+  `).join('');
+}
+function setFilter(f) { currentFilter=f; renderFilters(); renderObligations(); }
+
+function renderObligations() {
+  const obls  = loadObls();
+  const today = new Date();
+  let list = obls.map(o => ({ o, status:getStatus(o,today) }));
+  if (currentFilter !== 'الكل') list = list.filter(x => x.status===currentFilter);
+
+  const order = { 'متأخر':0,'قادم':1,'مدفوع':2,'منتهي':3 };
+  list.sort((a,b) => {
+    const od = (order[a.status]??9) - (order[b.status]??9);
+    if (od!==0) return od;
+    return (a.o.dueDay||1) - (b.o.dueDay||1);
+  });
+
+  document.getElementById('oblCount').textContent = list.length.toLocaleString('en-US') + ' التزام';
+
+  if (list.length === 0) {
     document.getElementById('oblList').innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">📭</div>
@@ -946,65 +1123,11 @@ function renderObligations() {
       </div>`;
     return;
   }
-
-  document.getElementById('oblList').innerHTML = filtered.map(o => {
-    const statusCls = {
-      'مدفوع':'paid','متأخر':'late','قادم':'future'
-    }[o.status] || 'future';
-    const badgeCls = {
-      'مدفوع':'badge-paid','متأخر':'badge-late','قادم':'badge-future'
-    }[o.status] || 'badge-future';
-
-    // Temp progress
-    let tempHtml = '';
-    if (o.type === 'مؤقت-أشهر' && o.rem !== '' && !isNaN(o.rem)) {
-      const remN = parseInt(o.rem);
-      tempHtml = `
-        <div class="temp-progress">
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:4px;direction:rtl">
-            <span>متبقي: ${remN.toLocaleString('en-US')} شهر</span>
-          </div>
-          <div class="temp-track">
-            <div class="temp-fill" style="width:${Math.max(5,Math.min(100,remN*5))}%;background:var(--orange)"></div>
-          </div>
-        </div>`;
-    } else if (o.type === 'مؤقت-تاريخ' && o.rem) {
-      tempHtml = `<div style="padding:0 14px 8px;font-size:11px;color:var(--text2)">ينتهي: ${o.rem}</div>`;
-    }
-
-    const isDone = o.type==='مؤقت-أشهر' && parseInt(o.rem)===0;
-
-    return `
-      <div class="ob-card status-${isDone?'done':statusCls}">
-        <div class="ob-main">
-          <div class="ob-info">
-            <div class="ob-name">${o.name}</div>
-            <div class="ob-meta">
-              <span class="badge badge-cat">${o.cat||'أخرى'}</span>
-              <span class="badge ${badgeCls}">${o.status}</span>
-              ${o.type!=='دائم'?`<span class="rem-badge">${o.type==='مؤقت-أشهر'?(parseInt(o.rem)||0).toLocaleString('en-US')+' شهر':o.rem}</span>`:''}
-              ${o.notes?`<span class="badge badge-cat">${o.notes}</span>`:''}
-            </div>
-          </div>
-          <div class="ob-right">
-            <div class="ob-amount">${fmtAmt(o.amount)}<span class="cur"> ر.س</span></div>
-            <div class="ob-due">${fmtDate(o.dueDate)}</div>
-          </div>
-        </div>
-        ${tempHtml}
-        <div class="ob-footer">
-          ${o.status!=='مدفوع'&&!isDone
-            ? `<button class="btn-ob btn-pay" onclick="openPayModal('${o.id}')">✅ سجّل الدفع</button>`
-            : `<button class="btn-ob btn-pay" style="background:var(--gray2);color:var(--text2)" disabled>مدفوع ✓</button>`}
-          <button class="btn-ob btn-edit" onclick="openEditModal('${o.id}')" title="تعديل">✏️</button>
-          <button class="btn-ob btn-del"  onclick="deleteObl('${o.id}')" title="حذف">🗑</button>
-        </div>
-      </div>`;
-  }).join('');
+  document.getElementById('oblList').innerHTML = list.map(x=>renderObCard(x.o,today)).join('');
 }
 
 // ═══════════════════════════════════════════════════════
-// RENDER HISTORY
+// TAB 3: سجل المدفوعات
 // ═══════════════════════════════════════════════════════
 function renderHistory() {
   const hist = loadHist().slice().reverse();
@@ -1033,50 +1156,41 @@ function renderHistory() {
 }
 
 // ═══════════════════════════════════════════════════════
-// RENDER SUMMARY
+// TAB 4: الملخص
 // ═══════════════════════════════════════════════════════
 function renderSummary() {
-  const obls = loadObls();
-  const today = new Date(); const cm = today.getMonth(), cy = today.getFullYear();
-  const thisMonth = (o) => {
-    if (!o.dueDate) return false;
-    const d = new Date(o.dueDate + 'T00:00:00');
-    return d.getMonth()===cm && d.getFullYear()===cy;
-  };
-  const total = obls.filter(thisMonth).reduce((s,o)=>s+Number(o.amount),0);
+  const obls  = loadObls();
+  const today = new Date();
+  const active = obls.filter(o => isActiveForMonth(o, today));
+  const total  = active.reduce((s,o)=>s+Number(o.amount),0);
 
-  const cats = ['إيجار','فواتير','أقساط','تأمين','اشتراكات','مصاريف ثابتة','أخرى'];
+  const cats  = ['إيجار','فواتير','أقساط','تأمين','اشتراكات','مصاريف ثابتة','أخرى'];
   const icons = {'إيجار':'🏠','فواتير':'🔌','أقساط':'💳','تأمين':'🛡️','اشتراكات':'📱','مصاريف ثابتة':'📌','أخرى':'📦'};
-  const colors = {'إيجار':'#1A6FD4','فواتير':'#7C3AED','أقساط':'#DD6B20',
-                  'تأمين':'#0D9E5C','اشتراكات':'#DB2777','مصاريف ثابتة':'#0891B2','أخرى':'#6B7280'};
-
+  const colors= {'إيجار':'#1A6FD4','فواتير':'#7C3AED','أقساط':'#DD6B20',
+                 'تأمين':'#0D9E5C','اشتراكات':'#DB2777','مصاريف ثابتة':'#0891B2','أخرى':'#6B7280'};
   const statuses = [
     {label:'✅ مدفوع',k:'مدفوع',c:'#0D9E5C'},
-
     {label:'🔴 متأخر',k:'متأخر',c:'#E53E3E'},
     {label:'📅 قادم', k:'قادم', c:'#1A6FD4'},
   ];
 
   let html = '';
-
-  // Status cards
   statuses.forEach(s => {
-    const amt  = obls.filter(o=>thisMonth(o)&&o.status===s.k).reduce((a,o)=>a+Number(o.amount),0);
-    const cnt  = obls.filter(o=>thisMonth(o)&&o.status===s.k).length;
-    const pct  = total ? (amt/total*100) : 0;
+    const arr = active.filter(o => getStatus(o,today)===s.k);
+    const amt = arr.reduce((a,o)=>a+Number(o.amount),0);
+    const pct = total ? (amt/total*100) : 0;
     html += `
       <div class="sum-card">
         <div class="sum-label">${s.label}</div>
         <div class="sum-value">${fmtAmt(amt)} <span style="font-size:11px;color:var(--text2)">ر.س</span></div>
-        <div style="font-size:11px;color:var(--text2);margin-top:3px">${cnt.toLocaleString('en-US')} بند · ${pct.toFixed(0).toLocaleString('en-US')}%</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px">${arr.length.toLocaleString('en-US')} بند · ${pct.toFixed(0).toLocaleString('en-US')}%</div>
         <div class="sum-bar-wrap"><div class="sum-bar" style="width:${pct}%;background:${s.c}"></div></div>
       </div>`;
   });
-
-  // Category cards
   cats.forEach(cat => {
-    const amt = obls.filter(o=>thisMonth(o)&&o.cat===cat).reduce((a,o)=>a+Number(o.amount),0);
-    if (amt === 0) return;
+    const arr = active.filter(o => o.cat===cat);
+    const amt = arr.reduce((a,o)=>a+Number(o.amount),0);
+    if (amt===0) return;
     const pct = total ? (amt/total*100) : 0;
     html += `
       <div class="sum-card">
@@ -1086,7 +1200,6 @@ function renderSummary() {
         <div class="sum-bar-wrap"><div class="sum-bar" style="width:${pct}%;background:${colors[cat]||'#6B7280'}"></div></div>
       </div>`;
   });
-
   document.getElementById('summaryGrid').innerHTML = html;
 }
 
@@ -1097,11 +1210,14 @@ function switchTab(tab, btn) {
   currentTab = tab;
   document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  document.getElementById('tab-thismonth').style.display   = tab==='thismonth'   ? '' : 'none';
   document.getElementById('tab-obligations').style.display = tab==='obligations' ? '' : 'none';
   document.getElementById('tab-history').style.display     = tab==='history'     ? '' : 'none';
   document.getElementById('tab-summary').style.display     = tab==='summary'     ? '' : 'none';
-  if (tab==='history') renderHistory();
-  if (tab==='summary') renderSummary();
+  if (tab==='thismonth')   renderThisMonth();
+  if (tab==='obligations') { renderFilters(); renderObligations(); }
+  if (tab==='history')     renderHistory();
+  if (tab==='summary')     renderSummary();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1110,10 +1226,10 @@ function switchTab(tab, btn) {
 function openAddModal() {
   document.getElementById('modalTitle').textContent = 'إضافة التزام جديد';
   document.getElementById('editId').value = '';
-  ['f_name','f_amount','f_day','f_notes','f_rem'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('f_cat').value    = 'إيجار';
-  document.getElementById('f_status').value = 'قادم';
-  document.getElementById('f_type').value   = 'دائم';
+  ['f_name','f_amount','f_day','f_notes','f_rem_months','f_rem_date'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f_cat').value  = 'إيجار';
+  document.getElementById('f_type').value = 'دائم';
+  document.getElementById('f_paid').checked = false;
   toggleTemp();
   document.getElementById('addOverlay').classList.add('open');
 }
@@ -1123,47 +1239,43 @@ function openEditModal(id) {
   if (!o) return;
   document.getElementById('modalTitle').textContent = 'تعديل الالتزام';
   document.getElementById('editId').value    = id;
-  document.getElementById('f_name').value   = o.name;
-  document.getElementById('f_cat').value    = o.cat;
-  document.getElementById('f_amount').value = o.amount;
-  document.getElementById('f_day').value    = o.dueDay || '';
-  document.getElementById('f_status').value = o.status;
-  document.getElementById('f_type').value   = o.type;
-  document.getElementById('f_rem').value    = o.rem||'';
-  document.getElementById('f_notes').value  = o.notes||'';
+  document.getElementById('f_name').value    = o.name;
+  document.getElementById('f_cat').value     = o.cat;
+  document.getElementById('f_amount').value  = o.amount;
+  document.getElementById('f_day').value     = o.dueDay || '';
+  document.getElementById('f_type').value    = o.type || 'دائم';
+  document.getElementById('f_rem_months').value = o.remainingMonths ?? '';
+  document.getElementById('f_rem_date').value   = o.endDate || '';
+  document.getElementById('f_notes').value   = o.notes || '';
+  document.getElementById('f_paid').checked  = isPaidForMonth(o, new Date());
   toggleTemp();
   document.getElementById('addOverlay').classList.add('open');
 }
 
 function toggleTemp() {
   const t = document.getElementById('f_type').value;
-  const g = document.getElementById('f_rem_group');
-  const l = document.getElementById('f_rem_label');
-  if (t === 'دائم') { g.style.display='none'; return; }
-  g.style.display='';
-  l.textContent = t==='مؤقت-أشهر' ? 'عدد الأشهر المتبقية' : 'تاريخ الانتهاء (مثال: 31/12/2025)';
+  document.getElementById('f_months_group').style.display = t==='مؤقت-أشهر'  ? '' : 'none';
+  document.getElementById('f_date_group').style.display   = t==='مؤقت-تاريخ' ? '' : 'none';
 }
 
 function openPayModal(id) {
   const o = loadObls().find(x => String(x.id)===String(id));
   if (!o) return;
-  document.getElementById('payId').value    = id;
+  const today = new Date();
+  const due = dueDateForMonth(o, today.getFullYear(), today.getMonth());
+  document.getElementById('payId').value = id;
   document.getElementById('payName').textContent = o.name;
-  document.getElementById('payDue').textContent  = 'الاستحقاق: ' + fmtDate(o.dueDate) + ' · ' + fmtAmt(o.amount) + ' ر.س';
+  document.getElementById('payDue').textContent  = 'الاستحقاق: ' + fmtDate(due.toISOString().split('T')[0]) + ' · ' + fmtAmt(o.amount) + ' ر.س';
   document.getElementById('p_amount').value = o.amount;
   document.getElementById('p_method').value = 'SADAD';
   document.getElementById('payOverlay').classList.add('open');
 }
 
-function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
-}
-function closeOverlay(e, id) {
-  if (e.target.id === id) closeModal(id);
-}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeOverlay(e, id) { if (e.target.id === id) closeModal(id); }
 
 // ═══════════════════════════════════════════════════════
-// SAVE OBLIGATION
+// SAVE OBLIGATION (Add/Edit)
 // ═══════════════════════════════════════════════════════
 function saveObligation() {
   const name   = document.getElementById('f_name').value.trim();
@@ -1171,71 +1283,39 @@ function saveObligation() {
   if (!name)        { showToast('أدخل اسم الالتزام', true); return; }
   if (isNaN(amount)||amount<=0) { showToast('أدخل مبلغاً صحيحاً', true); return; }
 
-  const day     = parseInt(document.getElementById('f_day').value)||1;
-  const status  = document.getElementById('f_status').value;
-  const type    = document.getElementById('f_type').value;
-  const rem     = document.getElementById('f_rem').value.trim();
-  const today   = new Date();
+  const day  = parseInt(document.getElementById('f_day').value) || 1;
+  const type = document.getElementById('f_type').value;
+  const paidChecked = document.getElementById('f_paid').checked;
+  const today = new Date();
 
-  // حساب dueDate بشكل ذكي حسب النوع والحالة
-  let dueDate;
-  if (type === 'مؤقت-تاريخ' && rem) {
-    // مؤقت بتاريخ انتهاء: نبني dueDate من يوم الشهر + الشهر الحالي
-    // لو اليوم فات في الشهر الحالي نروح للشهر القادم
-    let bm = today.getMonth(), by = today.getFullYear();
-    const maxD1 = new Date(by, bm+1, 0).getDate();
-    const safeD1 = Math.min(Math.max(1, day), maxD1);
-    const candidate = new Date(by, bm, safeD1);
-    // لو التاريخ المحسوب فات اليوم اذهب للشهر القادم
-    if (candidate < today && status !== 'متأخر') {
-      bm += 1;
-      if (bm > 11) { bm = 0; by++; }
-    }
-    const maxD2 = new Date(by, bm+1, 0).getDate();
-    const safeD2 = Math.min(Math.max(1, day), maxD2);
-    dueDate = new Date(by, bm, safeD2).toISOString().split('T')[0];
-  } else {
-    // دائم أو مؤقت-أشهر
-    let baseMonth = today.getMonth();
-    let baseYear  = today.getFullYear();
-    // لو مدفوع أو قادم: اجعل الاستحقاق للشهر القادم حتى لا يُصنَّف متأخراً
-    if (status === 'مدفوع' || status === 'قادم') {
-      const maxDCur = new Date(baseYear, baseMonth+1, 0).getDate();
-      const safeD   = Math.min(Math.max(1, day), maxDCur);
-      const candidate = new Date(baseYear, baseMonth, safeD);
-      if (candidate <= today) {
-        baseMonth += 1;
-        if (baseMonth > 11) { baseMonth = 0; baseYear += 1; }
-      }
-    }
-    const maxDay  = new Date(baseYear, baseMonth + 1, 0).getDate();
-    const safeDay = Math.min(Math.max(1, day), maxDay);
-    dueDate = new Date(baseYear, baseMonth, safeDay).toISOString().split('T')[0];
+  let remainingMonths, endDate, finished = false;
+  if (type === 'مؤقت-أشهر') {
+    remainingMonths = parseInt(document.getElementById('f_rem_months').value);
+    if (isNaN(remainingMonths) || remainingMonths < 0) remainingMonths = 0;
+    if (remainingMonths === 0) finished = true;
+  } else if (type === 'مؤقت-تاريخ') {
+    endDate = document.getElementById('f_rem_date').value || null;
+    if (endDate && endDate < todayStr()) finished = true;
   }
 
-  const safeDay = parseInt(day) || 1;
+  const lastPaidMonth = paidChecked ? monthKey(today) : null;
 
-  const o = {
-    name,
-    cat:    document.getElementById('f_cat').value,
-    amount,
-    dueDay: safeDay,
-    dueDate,
-    status,
-    type:   document.getElementById('f_type').value,
-    rem:    document.getElementById('f_rem').value.trim(),
-    notes:  document.getElementById('f_notes').value.trim(),
+  const obj = {
+    name, cat: document.getElementById('f_cat').value, amount,
+    dueDay: day, type, remainingMonths, endDate,
+    notes: document.getElementById('f_notes').value.trim(),
+    lastPaidMonth, finished,
   };
 
-  const obls  = loadObls();
-  const editId= document.getElementById('editId').value;
+  const obls   = loadObls();
+  const editId = document.getElementById('editId').value;
   if (editId) {
     const idx = obls.findIndex(x => String(x.id)===String(editId));
-    if (idx !== -1) { obls[idx] = { ...obls[idx], ...o }; }
+    if (idx !== -1) obls[idx] = { ...obls[idx], ...obj };
   } else {
-    o.id = Date.now();
-    o.createdAt = new Date().toISOString();
-    obls.push(o);
+    obj.id = Date.now();
+    obj.createdAt = new Date().toISOString();
+    obls.push(obj);
   }
   saveObls(obls);
   closeModal('addOverlay');
@@ -1244,7 +1324,7 @@ function saveObligation() {
 }
 
 // ═══════════════════════════════════════════════════════
-// CONFIRM PAYMENT — the main automation
+// CONFIRM PAYMENT — يختفي البند فوراً من "هذا الشهر"
 // ═══════════════════════════════════════════════════════
 function confirmPayment() {
   const id     = document.getElementById('payId').value;
@@ -1255,42 +1335,39 @@ function confirmPayment() {
   const obls = loadObls();
   const idx  = obls.findIndex(x => String(x.id)===String(id));
   if (idx === -1) return;
-
   const o = obls[idx];
-  const oldDue  = o.dueDate || todayStr();
-  const newDue  = nextMonthDate(oldDue, o.dueDay);
-  const ml      = monthLabel(oldDue);
+  const today = new Date();
+  const mKey  = monthKey(today);
+  const ml    = MONTHS_AR[today.getMonth()] + ' ' + today.getFullYear().toLocaleString('en-US');
 
-  // ── 1. Log to history ────────────────────────────────
+  // 1. سجل في تاريخ المدفوعات
   const hist = loadHist();
   hist.push({
-    id:         Date.now(),
-    oblId:      o.id,
-    name:       o.name,
-    cat:        o.cat,
-    amount,
-    method,
-    paidDate:   todayStr(),
-    monthLabel: ml,
+    id: Date.now(), oblId:o.id, name:o.name, cat:o.cat,
+    amount, method, paidDate: todayStr(), monthLabel: ml,
   });
   saveHist(hist);
 
-  // ── 2. Update obligation ─────────────────────────────
-  obls[idx].status   = 'قادم';
-  obls[idx].dueDate  = newDue;
-  obls[idx].lastPaid = todayStr();
+  // 2. علّم الالتزام كمدفوع لهذا الشهر — يختفي فوراً من "هذا الشهر"
+  obls[idx].lastPaidMonth = mKey;
 
-  // ── 3. Decrement months for temporary ───────────────
-  if (o.type === 'مؤقت-أشهر' && !isNaN(parseInt(o.rem))) {
-    const r = Math.max(0, parseInt(o.rem) - 1);
-    obls[idx].rem = String(r);
-    if (r === 0) obls[idx].status = 'مدفوع'; // mark done
+  // 3. أنقص الأشهر المتبقية للمؤقت، أو تحقق من انتهاء تاريخ الانتهاء
+  if (o.type === 'مؤقت-أشهر') {
+    let rm = (o.remainingMonths ?? 1) - 1;
+    if (rm < 0) rm = 0;
+    obls[idx].remainingMonths = rm;
+    if (rm <= 0) obls[idx].finished = true;
+  } else if (o.type === 'مؤقت-تاريخ' && o.endDate) {
+    const nextRef = new Date(today.getFullYear(), today.getMonth()+1, 1);
+    const nextDue = dueDateForMonth(o, nextRef.getFullYear(), nextRef.getMonth());
+    const end = parseISODate(o.endDate);
+    if (end && nextDue > end) obls[idx].finished = true;
   }
 
   saveObls(obls);
   closeModal('payOverlay');
   renderAll();
-  showToast(`✅ تم تسجيل دفع ${o.name} · الاستحقاق القادم: ${fmtDate(newDue)}`);
+  showToast(`✅ تم تسجيل دفع ${o.name} لهذا الشهر`);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1300,7 +1377,6 @@ function deleteObl(id) {
   const obls = loadObls();
   const o    = obls.find(x => String(x.id)===String(id));
   if (!o) return;
-  // custom confirm بدلاً من confirm() لأنه محجوب في بعض متصفحات الجوال
   showConfirm('حذف "' + o.name + '"؟', function() {
     saveObls(loadObls().filter(x => String(x.id)!==String(id)));
     renderAll();
@@ -1341,31 +1417,36 @@ function updateHeaderDate() {
 }
 
 // ═══════════════════════════════════════════════════════
-// RENDER ALL
+// REFRESH / RENDER ALL
 // ═══════════════════════════════════════════════════════
+function manualRefresh() {
+  const btn = document.getElementById('refreshBtn');
+  if (btn) { btn.classList.remove('spinning'); void btn.offsetWidth; btn.classList.add('spinning'); }
+  renderAll();
+  updateHeaderDate();
+  showToast('تم تحديث البيانات ✓');
+}
+
 function renderAll() {
   renderKPI();
-  renderFilters();
-  renderObligations();
-  if (currentTab==='history') renderHistory();
-  if (currentTab==='summary') renderSummary();
+  updateSalary();
+  if (currentTab==='thismonth')   renderThisMonth();
+  if (currentTab==='obligations') { renderFilters(); renderObligations(); }
+  if (currentTab==='history')     renderHistory();
+  if (currentTab==='summary')     renderSummary();
 }
 
 // ═══════════════════════════════════════════════════════
 // SALARY
 // ═══════════════════════════════════════════════════════
 function updateSalary() {
-  const salary  = parseFloat(document.getElementById('salaryInput').value) || 0;
-  const obls    = loadObls();
-  const today   = new Date(); const cm = today.getMonth(), cy = today.getFullYear();
-  const total   = obls.filter(o => {
-    if (!o.dueDate) return false;
-    const d = new Date(o.dueDate + 'T00:00:00');
-    return d.getMonth()===cm && d.getFullYear()===cy;
-  }).reduce((s,o) => s + Number(o.amount), 0);
+  const salary = parseFloat(document.getElementById('salaryInput').value) || 0;
+  const obls   = loadObls();
+  const today  = new Date();
+  const total  = obls.filter(o => isActiveForMonth(o, today)).reduce((s,o)=>s+Number(o.amount),0);
 
-  const remain  = salary - total;
-  const pct     = salary > 0 ? Math.min(100, Math.max(0, (remain/salary)*100)) : 0;
+  const remain = salary - total;
+  const pct    = salary > 0 ? Math.min(100, Math.max(0, (remain/salary)*100)) : 0;
 
   const el  = document.getElementById('salaryRemain');
   const bar = document.getElementById('salaryFill');
@@ -1384,7 +1465,6 @@ function updateSalary() {
   const pctEl = document.getElementById('salaryPct');
   if (pctEl) pctEl.textContent = pct.toFixed(0).toLocaleString('en-US') + '% متبقي من الراتب';
 
-  // حفظ الراتب
   localStorage.setItem('salary_v1', salary);
 }
 
@@ -1395,6 +1475,7 @@ function loadSalary() {
     updateSalary();
   }
 }
+
 
 // ═══════════════════════════════════════════════════════
 // THEME ENGINE
@@ -1568,10 +1649,12 @@ function onColorChange(inp) {
   markSelectedTheme(-1); // deselect preset
 }
 
+
 // ═══════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════
-// ── INIT ─────────────────────────────────────────────
+migrateSchema();
+seedData();
 loadTheme();
 updateHeaderDate();
 renderAll();
