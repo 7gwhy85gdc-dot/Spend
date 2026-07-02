@@ -49,7 +49,7 @@ body {
   color: var(--text);
   min-height: 100vh;
   overflow-x: hidden;
-  padding-bottom: 100px;
+  padding-bottom: 180px;
 }
 
 /* ── BACKGROUND ─────────────────────────────────── */
@@ -282,14 +282,23 @@ body::before {
   border-radius: var(--radius);
   padding: 12px 14px;
   display: flex; justify-content: space-between; align-items: center;
+  gap: 10px;
   animation: slideIn 0.25s ease;
 }
-.hist-left {}
+.hist-left { flex: 1; min-width: 0; }
 .hist-name { font-size: 13px; font-weight: 600; color: var(--white); }
 .hist-meta { font-size: 11px; color: var(--text2); margin-top: 3px; }
-.hist-right { text-align: left; }
+.hist-right { text-align: left; flex-shrink: 0; }
 .hist-amount { font-size: 16px; font-weight: 700; color: var(--green); }
 .hist-method { font-size: 11px; color: var(--text2); }
+.hist-del {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 9px;
+  background: rgba(229,62,62,0.12); color: var(--red);
+  border: none; font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.15s, background 0.2s;
+}
+.hist-del:active { transform: scale(0.9); background: rgba(229,62,62,0.22); }
 
 /* ── SUMMARY ────────────────────────────────────── */
 .summary-grid {
@@ -531,15 +540,22 @@ body::before {
   font-size: 13px; font-family: 'IBM Plex Sans Arabic', sans-serif;
   cursor: pointer; margin-top: 8px;
 }
-.btn-settings {
-  position: fixed; bottom: 88px; left: 20px; z-index: 200;
-  width: 42px; height: 42px; border-radius: 50%;
-  background: var(--card); border: 1px solid var(--border);
-  color: var(--text2); font-size: 18px; cursor: pointer;
+.btn-float {
+  position: fixed; left: 18px; z-index: 200;
+  width: 46px; height: 46px; border-radius: 50%;
+  background: linear-gradient(145deg, var(--card), var(--card2));
+  border: 1px solid var(--border);
+  color: var(--text2); font-size: 19px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: all 0.2s; box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  transition: transform 0.18s cubic-bezier(.4,0,.2,1), box-shadow 0.2s, border-color 0.2s;
+  box-shadow: 0 3px 14px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
 }
-.btn-settings:active { transform: scale(0.9); }
+.btn-float:active { transform: scale(0.88); }
+.btn-float.theme-btn { bottom: 94px; }
+.btn-float.theme-btn:active { box-shadow: 0 0 0 6px rgba(26,111,212,0.18), 0 3px 14px rgba(0,0,0,0.35); }
+.btn-float.cache-btn { bottom: 32px; }
+.btn-float.cache-btn:active { box-shadow: 0 0 0 6px rgba(221,107,32,0.18), 0 3px 14px rgba(0,0,0,0.35); }
 
 /* ── MONTH PROGRESS CARD (this-month tab) ───────── */
 .month-progress-card {
@@ -678,7 +694,8 @@ body::before {
 <button class="fab" onclick="openAddModal()">
   <span>+</span> إضافة التزام
 </button>
-<button class="btn-settings" onclick="openThemeModal()" title="تخصيص الألوان">🎨</button>
+<button class="btn-float theme-btn" onclick="openThemeModal()" title="تخصيص الألوان">🎨</button>
+<button class="btn-float cache-btn" onclick="clearCache()" title="مسح الكاش">🧹</button>
 
 <!-- ADD/EDIT MODAL -->
 <div class="overlay" id="addOverlay" onclick="closeOverlay(event,'addOverlay')">
@@ -798,7 +815,7 @@ body::before {
   <div class="modal" style="max-height:auto">
     <div class="modal-handle"></div>
     <div class="modal-title" style="font-size:15px" id="confirmMsg"></div>
-    <button class="btn-modal-confirm" id="confirmYes" style="background:linear-gradient(135deg,#E53E3E,#C53030);box-shadow:0 2px 16px rgba(229,62,62,0.4)">🗑 حذف</button>
+    <button class="btn-modal-confirm" id="confirmYes">🗑 حذف</button>
     <button class="btn-modal-cancel" id="confirmNo">إلغاء</button>
   </div>
 </div>
@@ -1152,7 +1169,19 @@ function renderHistory() {
         <div class="hist-amount">${fmtAmt(h.amount)} <span style="font-size:11px;font-weight:400;color:var(--text2)">ر.س</span></div>
         <div class="hist-method">${h.cat||''}</div>
       </div>
+      <button class="hist-del" onclick="deleteHistEntry('${h.id}')" title="حذف الدفعة">🗑</button>
     </div>`).join('');
+}
+
+function deleteHistEntry(id) {
+  const hist = loadHist();
+  const h = hist.find(x => String(x.id)===String(id));
+  if (!h) return;
+  showConfirm('حذف دفعة "' + h.name + '" (' + fmtAmt(h.amount) + ' ر.س)؟ هذا يحذف السجل فقط ولا يغيّر حالة الالتزام.', function() {
+    saveHist(loadHist().filter(x => String(x.id)!==String(id)));
+    renderHistory();
+    showToast('تم حذف الدفعة من السجل');
+  });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1384,10 +1413,19 @@ function deleteObl(id) {
   });
 }
 
-function showConfirm(msg, onYes) {
+function showConfirm(msg, onYes, opts) {
+  opts = opts || {};
+  const label = opts.label || '🗑 حذف';
+  const bg    = opts.bg    || 'linear-gradient(135deg,#E53E3E,#C53030)';
+  const shadow= opts.shadow|| '0 2px 16px rgba(229,62,62,0.4)';
+
   const overlay = document.getElementById('confirmOverlay');
   document.getElementById('confirmMsg').textContent = msg;
-  document.getElementById('confirmYes').onclick = function() {
+  const yesBtn = document.getElementById('confirmYes');
+  yesBtn.textContent = label;
+  yesBtn.style.background = bg;
+  yesBtn.style.boxShadow  = shadow;
+  yesBtn.onclick = function() {
     overlay.classList.remove('open');
     onYes();
   };
@@ -1395,6 +1433,33 @@ function showConfirm(msg, onYes) {
     overlay.classList.remove('open');
   };
   overlay.classList.add('open');
+}
+
+// ═══════════════════════════════════════════════════════
+// CLEAR CACHE — يمسح الإعدادات المؤقتة فقط (الثيم، الراتب)
+// دون المساس بالالتزامات أو سجل المدفوعات
+// ═══════════════════════════════════════════════════════
+function clearCache() {
+  showConfirm(
+    'سيتم مسح إعدادات الثيم والراتب المحفوظ فقط. التزاماتك وسجل مدفوعاتك بأمان ولن تُحذف. متابعة؟',
+    function() {
+      localStorage.removeItem('theme_v1');
+      localStorage.removeItem('salary_v1');
+      localStorage.removeItem('data_ver'); // مفتاح قديم غير مستخدم
+
+      // إعادة ضبط الثيم بصرياً للوضع الافتراضي
+      const root = document.documentElement;
+      EDITABLE_VARS.forEach(v => root.style.removeProperty(v.key));
+
+      // تفريغ خانة الراتب
+      const salaryInput = document.getElementById('salaryInput');
+      if (salaryInput) salaryInput.value = '';
+
+      renderAll();
+      showToast('🧹 تم مسح الكاش — التزاماتك وسجلك بأمان');
+    },
+    { label: '🧹 مسح الكاش', bg: 'linear-gradient(135deg,#DD6B20,#B45309)', shadow: '0 2px 16px rgba(221,107,32,0.4)' }
+  );
 }
 
 // ═══════════════════════════════════════════════════════
